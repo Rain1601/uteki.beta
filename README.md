@@ -56,6 +56,15 @@ PYTHONPATH=src python3 -m uteki_eval evaluate \
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
+Preview and review the current M0 pilot locally:
+
+```bash
+PYTHONPATH=src:. python3 apps/review_workbench/app.py
+```
+
+Then open `http://127.0.0.1:8765`. Review decisions are stored locally and are
+not benchmark truth until explicitly exported and frozen.
+
 The evaluator reports exact-match accuracy, coverage, and an error manifest.
 Its exit code is non-zero when input contracts are invalid, not when a model
 scores poorly.
