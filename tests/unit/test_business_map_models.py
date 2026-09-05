@@ -34,3 +34,11 @@ class BusinessMapModelTests(unittest.TestCase):
         result = business_map_from_dict(json.loads(path.read_text(encoding="utf-8")))
         self.assertEqual(result.company_id, "alphabet")
         self.assertEqual(len(result.businesses), 5)
+
+    def test_benchmark_candidate_matches_domain_contract(self) -> None:
+        path = Path("benchmarks/alphabet_2025_business_map/v0.1-candidate/business_map.json")
+        result = business_map_from_dict(json.loads(path.read_text(encoding="utf-8")))
+        self.assertEqual(result.company_id, "alphabet")
+        self.assertEqual(len(result.businesses), 9)
+        self.assertEqual(len(result.relationships), 8)
+        self.assertEqual(len(result.evidence), 22)
