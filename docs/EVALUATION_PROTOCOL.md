@@ -6,14 +6,16 @@ One benchmark row is one independently answerable research-data question. It
 contains a stable identifier, task, source locator, expected value, unit, and
 annotation metadata. Ground truth must be human-reviewed.
 
-## First three task families
+## Active task family
 
-1. Metric extraction: exact value, period, unit, and source location.
-2. Claim extraction: precision, recall, attribution, and evidence span.
-3. Evidence retrieval: Recall@k and source/location agreement.
+M0 evaluates disclosed business-structure extraction from Alphabet 10-Ks:
+business nodes, entity types, relationships, supporting evidence, duplication,
+and cross-year disclosure changes. The precise contract and gates live in the
+bilingual M0 scope documents.
 
-M0 implements only the metric-extraction scoring contract. The other task
-families should reuse identifiers, provenance, versioning, and experiment logs.
+Metric extraction, claim extraction, and evidence retrieval remain future task
+families. The existing synthetic metric fixture is a pre-M0 technical check,
+not the active benchmark.
 
 ## Benchmark lifecycle
 
@@ -29,4 +31,3 @@ Every experiment begins by copying `experiments/TEMPLATE.md` into a new,
 date-prefixed directory. Record the hypothesis before the change. Store the
 exact command, code revision, benchmark version, aggregate metrics, individual
 errors, cost/latency, conclusion, and next hypothesis.
-

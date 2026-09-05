@@ -32,8 +32,8 @@ not enter the active roadmap.
 The initial scope is intentionally narrow:
 
 - one company: Alphabet;
-- one familiar business context: Google Cloud within Alphabet;
-- one automation capability: metric extraction;
+- one document family: three consecutive Alphabet annual 10-K filings;
+- one automation capability: disclosed business-structure extraction;
 - one evaluation loop: annotate, baseline, score, review errors, experiment;
 - one researcher and final reviewer: the human project owner.
 
@@ -45,13 +45,13 @@ criteria.
 "Small and fast" does not mean skipping rigor. It means reducing the size of
 each claim so that it can be tested quickly and honestly.
 
-## Initial research question
+## Initial evaluation question
 
-Can Google Cloud become Alphabet's second growth engine over the next three to
-five years and materially change Alphabet's profit structure?
+Can the system recover Alphabet's publicly disclosed business entities,
+types, relationships, evidence, and cross-year disclosure changes from three
+consecutive annual 10-K filings under a fixed annotation policy?
 
-This question is provisional until its scope, hypothesis tree, evidence rules,
-and falsification criteria are reviewed.
+The exact contract is defined in `M0_SCOPE.md` and its Chinese companion.
 
 ## M0 acceptance criteria
 

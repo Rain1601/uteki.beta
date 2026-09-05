@@ -30,13 +30,15 @@ fixed benchmark -> baseline predictions -> deterministic scoring
                 -> error analysis -> hypothesis -> next experiment
 ```
 
-The active boundary and five acceptance gates are defined in
-[`docs/M0_SCOPE.md`](docs/M0_SCOPE.md). In short: one company (Alphabet), one
-capability (metric extraction), and one complete evaluation loop.
+The active boundary and five acceptance gates are defined in English and
+Chinese in [`docs/M0_SCOPE.md`](docs/M0_SCOPE.md) and
+[`docs/M0_SCOPE.zh-CN.md`](docs/M0_SCOPE.zh-CN.md). In short: three consecutive
+Alphabet 10-K filings, one disclosed-business-structure task, and one complete
+evaluation loop.
 
-The included benchmark is a tiny, synthetic metric-extraction fixture. It is
-not research evidence and is not a claim of system quality; it only verifies
-that the evaluation contract works end to end.
+The included metric-extraction fixture predates the current M0 definition. It
+is only a technical evaluator check and is not the active benchmark or a claim
+of system quality. No Business Structure implementation has started.
 
 ## Run it
 
@@ -66,6 +68,7 @@ tests/            Contract and metric tests
 
 ## Next gate
 
-Replace the synthetic fixture with a reviewed Alphabet benchmark containing
-50–100 items from source documents. Do not optimize an agent before the
-benchmark, annotation rules, and baseline result have been reviewed.
+Review and freeze the bilingual M0 scope, then complete G0: filing years,
+source representation, locator convention, annotation taxonomies, ambiguity
+policy, and scoring rules. Do not implement the Business Structure task before
+G0 is approved.
