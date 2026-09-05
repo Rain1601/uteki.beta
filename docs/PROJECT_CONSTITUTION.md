@@ -14,6 +14,10 @@ not enter the active roadmap.
 
 ## Working principles
 
+- Move in small, fast, evidence-producing steps. Every step must be independently
+  reviewable and small enough to reverse without protecting sunk cost.
+- Keep only one active capability milestone. Finish its complete research and
+  evaluation loop before expanding horizontally.
 - Begin with an investment question, not a feature.
 - Run the research loop manually before automating it.
 - Preserve source, location, time, and attribution for every material fact.
@@ -22,6 +26,24 @@ not enter the active roadmap.
 - Evaluate on the same benchmark and inspect every material error.
 - Treat methodology as the residue of repeated evidence, not upfront doctrine.
 - Keep final investment judgment with the human researcher.
+
+## Scope discipline
+
+The initial scope is intentionally narrow:
+
+- one company: Alphabet;
+- one familiar business context: Google Cloud within Alphabet;
+- one automation capability: metric extraction;
+- one evaluation loop: annotate, baseline, score, review errors, experiment;
+- one researcher and final reviewer: the human project owner.
+
+Company discovery, multi-company comparison, portfolio management, a general
+research agent, and production UI are end-state capabilities, not current work.
+They enter the active roadmap only after the current loop meets its acceptance
+criteria.
+
+"Small and fast" does not mean skipping rigor. It means reducing the size of
+each claim so that it can be tested quickly and honestly.
 
 ## Initial research question
 
@@ -39,4 +61,3 @@ and falsification criteria are reviewed.
 - Missing, incorrect, and malformed outputs are distinguishable.
 - Each experiment records a hypothesis, change, benchmark version, result,
   costs, error analysis, conclusion, and next action.
-

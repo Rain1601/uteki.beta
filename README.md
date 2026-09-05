@@ -30,6 +30,10 @@ fixed benchmark -> baseline predictions -> deterministic scoring
                 -> error analysis -> hypothesis -> next experiment
 ```
 
+The active boundary and five acceptance gates are defined in
+[`docs/M0_SCOPE.md`](docs/M0_SCOPE.md). In short: one company (Alphabet), one
+capability (metric extraction), and one complete evaluation loop.
+
 The included benchmark is a tiny, synthetic metric-extraction fixture. It is
 not research evidence and is not a claim of system quality; it only verifies
 that the evaluation contract works end to end.
