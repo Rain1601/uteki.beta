@@ -11,9 +11,9 @@ class ReviewWorkbenchTests(unittest.TestCase):
     def test_renders_pilot(self) -> None:
         data = json.loads(Path("data/evaluation/pilots/alphabet_2025_item1_business_map.json").read_text())
         page = render_page(data, {})
-        self.assertIn("Parsed source data", page)
-        self.assertIn("解析原始数据", page)
-        self.assertIn("Analysis result &amp; annotation", page)
+        self.assertIn("Parsed source", page)
+        self.assertIn("解析原文", page)
+        self.assertIn("Result &amp; annotation", page)
         self.assertIn("分析结果与标注", page)
         self.assertIn("Alphabet is a collection of businesses", page)
         self.assertIn("Google Cloud", page)
