@@ -32,8 +32,8 @@ not enter the active roadmap.
 The initial scope is intentionally narrow:
 
 - one company: Alphabet;
-- one document family: three consecutive Alphabet annual 10-K filings;
-- one automation capability: disclosed business-structure extraction;
+- one document: Alphabet's latest annual 10-K;
+- one automation capability: an evidence-backed Company Business Map;
 - one evaluation loop: annotate, baseline, score, review errors, experiment;
 - one researcher and final reviewer: the human project owner.
 
@@ -47,9 +47,9 @@ each claim so that it can be tested quickly and honestly.
 
 ## Initial evaluation question
 
-Can the system recover Alphabet's publicly disclosed business entities,
-types, relationships, evidence, and cross-year disclosure changes from three
-consecutive annual 10-K filings under a fixed annotation policy?
+Can the system produce an evidence-backed Company Business Map from Alphabet's
+latest 10-K that helps an investor understand its major businesses, economics,
+relationships, importance signals, and material unknowns?
 
 The exact contract is defined in `M0_SCOPE.md` and its Chinese companion.
 

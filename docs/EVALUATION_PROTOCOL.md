@@ -8,10 +8,11 @@ annotation metadata. Ground truth must be human-reviewed.
 
 ## Active task family
 
-M0 evaluates disclosed business-structure extraction from Alphabet 10-Ks:
-business nodes, entity types, relationships, supporting evidence, duplication,
-and cross-year disclosure changes. The precise contract and gates live in the
-bilingual M0 scope documents.
+M0 evaluates an evidence-backed Company Business Map from Alphabet's latest
+10-K: major-business coverage, factual and economic descriptions, useful
+relationships, importance signals, evidence, duplication, unsupported claims,
+and explicit unknowns. The precise contract and gates live in the bilingual M0
+scope documents.
 
 Metric extraction, claim extraction, and evidence retrieval remain future task
 families. The existing synthetic metric fixture is a pre-M0 technical check,
