@@ -11,7 +11,26 @@ Adopt a component only when it removes an observed bottleneck and remains
 replaceable. Do not introduce infrastructure in anticipation of hypothetical
 scale.
 
-## M0 default
+## M0 decision
+
+**Accepted on 2026-09-06:** build a minimal local Review Workbench instead of
+adopting Argilla, Label Studio, Doccano, or an experiment platform for M0.
+
+The workbench is a thin interface over Uteki-owned schemas. It is not a new
+general-purpose annotation platform. Its first version supports only the
+approved Business Structure workflow:
+
+- display a source passage and stable locator;
+- review an Agent-proposed node, relationship, or disclosure change;
+- accept, edit, reject, or mark the proposal ambiguous;
+- add an omitted annotation manually;
+- preserve the candidate, human revision, status, and review note;
+- export a frozen, version-controlled gold benchmark.
+
+The implementation technology remains open until planning. The plan should
+choose the smallest local UI that handles this workflow clearly.
+
+## M0 defaults
 
 - version-controlled, human-readable benchmark records;
 - explicit schemas and deterministic validators;
@@ -20,7 +39,7 @@ scale.
 - manual review using the smallest usable interface;
 - adapters around model providers and optional platforms.
 
-## Candidates, not commitments
+## Deferred candidates
 
 - **Argilla** when collaborative annotation and task distribution become a
   real bottleneck.
@@ -29,9 +48,9 @@ scale.
 - **MLflow** when broader experiment and dataset lifecycle requirements justify
   its tracking server and database.
 
-M0 does not select any of them. The implementation plan must compare an
-external component with the smallest in-repository solution using a real
-workflow, not a feature checklist.
+M0 does not select any of them. Reconsider an external component only after an
+observed bottleneck such as multiple regular annotators, task distribution,
+hundreds of review items, reviewer agreement, or excessive maintenance cost.
 
 ## Rejection tests
 
@@ -43,4 +62,3 @@ Reject or postpone a component if it:
 - couples Agent logic to one vendor or UI;
 - adds deployment work before it saves review or experiment time;
 - cannot explain a result without consulting the platform itself.
-
