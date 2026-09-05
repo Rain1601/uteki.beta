@@ -52,66 +52,63 @@ def bilingual(en: object, zh: object) -> str:
     return f"<span data-lang='en'>{esc(en)}</span><span data-lang='zh'>{esc(zh)}</span>"
 
 
-def render_evidence(item: dict) -> str:
+def render_source_row(item: dict) -> str:
     path = " › ".join(item.get("section_path", []))
-    zh = ZH["evidence"].get(item["id"], item["support"])
-    return f"""<div class="evidence-row">
-      <div class="evidence-index">¶{esc(item['paragraph_ordinal'])}</div>
-      <div><div>{bilingual(item['support'], zh)}</div><code>{esc(item['text_hash'][:12])}</code> <span class="path">{esc(path)}</span></div>
-      <a href="{esc(item['source_url'])}" target="_blank" aria-label="Open source">↗</a>
-    </div>"""
+    return f"""<tr id="source-{esc(item['id'])}">
+      <td class="mono">¶{esc(item['paragraph_ordinal'])}</td>
+      <td>{esc(path)}</td>
+      <td class="source-text">{esc(item.get('source_text', '—'))}</td>
+      <td>{bilingual(item['support'], ZH['evidence'].get(item['id'], item['support']))}</td>
+      <td class="mono"><span title="{esc(item['text_hash'])}">{esc(item['text_hash'][:12])}</span> <a href="{esc(item['source_url'])}" target="_blank">↗</a></td>
+    </tr>"""
 
 
-def render_business_detail(item: dict, evidence: dict[str, dict], review: dict, active: bool) -> str:
+def render_business_row(item: dict, review: dict, index: int) -> str:
     zh_item = ZH["business"].get(item["id"], {})
     products = " · ".join(item.get("products_services", [])) or "—"
     money_en = "; ".join(value["description"] for value in item.get("monetization", [])) or "Not stated at this level"
     money_zh = zh_item.get("money", "该层级未单独说明")
-    evidence_rows = "".join(render_evidence(evidence[eid]) for eid in item.get("evidence_ids", []) if eid in evidence)
     current = review.get(item["id"], {}).get("status", item.get("review_status", "candidate"))
     note = review.get(item["id"], {}).get("note", "")
     options = "".join(f"<option value='{status}' {'selected' if status == current else ''}>{status}</option>" for status in ("candidate", "accepted", "edited", "rejected", "ambiguous"))
-    return f"""<section class="detail {'active' if active else ''}" data-detail="{esc(item['id'])}">
-      <div class="detail-title"><div><span class="eyebrow">{esc(item['kind'])}</span><h2>{esc(item['name'])}</h2></div><span class="state {esc(current)}">{esc(current)}</span></div>
-      <div class="field"><label>{bilingual('Business description','业务描述')}</label><p>{bilingual(item['description'], zh_item.get('description', item['description']))}</p></div>
-      <div class="field"><label>{bilingual('Representative products & services','代表性产品与服务')}</label><p>{esc(products)}</p></div>
-      <div class="field"><label>{bilingual('How it makes money','如何赚钱')}</label><p>{bilingual(money_en, money_zh)}</p></div>
-      <div class="field evidence-block"><label>{bilingual('Supporting evidence','支持证据')} <b>{len(item.get('evidence_ids', []))}</b></label>{evidence_rows}</div>
-      <form method="post" action="/review" class="review-form">
+    evidence_links = " ".join(f'<a href="#source-{esc(eid)}">{esc(eid)}</a>' for eid in item.get("evidence_ids", []))
+    marker = "●" if index == 0 else "└"
+    return f"""<div class="sheet-record" id="business-{esc(item['id'])}">
+      <div class="identity"><span class="tree">{marker}</span><strong>{esc(item['name'])}</strong><small>{esc(item['kind'])}</small></div>
+      <div>{bilingual(item['description'], zh_item.get('description', item['description']))}</div>
+      <div>{esc(products)}</div>
+      <div>{bilingual(money_en, money_zh)}</div>
+      <div class="evidence-links">{evidence_links or '—'}</div>
+      <form method="post" action="/review" class="inline-review">
         <input type="hidden" name="item_id" value="{esc(item['id'])}">
-        <label>{bilingual('Decision','审核结论')}<select name="status">{options}</select></label>
-        <label>{bilingual('Review note','审核备注')}<textarea name="note" placeholder="Why? / 原因">{esc(note)}</textarea></label>
-        <button type="submit">{bilingual('Save review','保存审核')}</button>
+        <select name="status" aria-label="Decision for {esc(item['name'])}">{options}</select>
+        <input name="note" value="{esc(note)}" placeholder="{esc('审核备注 / Review note')}">
+        <button type="submit">{bilingual('Save','保存')}</button>
       </form>
-    </section>"""
+    </div>"""
 
 
 def render_page(data: dict, reviews: dict) -> str:
-    evidence = {item["id"]: item for item in data["evidence"]}
     business_reviews = reviews.get("businesses", {})
-    rows = []
-    details = []
-    for index, item in enumerate(data["businesses"]):
-        current = business_reviews.get(item["id"], {}).get("status", item.get("review_status", "candidate"))
-        rows.append(f"""<button class="result-row {'active' if index == 0 else ''}" data-select="{esc(item['id'])}">
-          <span class="tree-mark">{'●' if item['kind'] == 'company' else '└'}</span><span><b>{esc(item['name'])}</b><small>{esc(item['kind'])}</small></span><i class="dot {esc(current)}"></i>
-        </button>""")
-        details.append(render_business_detail(item, evidence, business_reviews, index == 0))
+    source_rows = "".join(render_source_row(item) for item in data["evidence"])
+    business_rows = "".join(render_business_row(item, business_reviews, index) for index, item in enumerate(data["businesses"]))
     relationships = "".join(f"<tr><td>{esc(item['source_id'])}</td><td>{esc(item['kind'])}</td><td>{esc(item['target_id'])}</td><td>{bilingual(item['description'], ZH['relationship'].get(item['source_id']+':'+item['target_id'], item['description']))}</td></tr>" for item in data["relationships"])
     unknown = data["unknowns"][0] if data["unknowns"] else None
     reviewed = sum(1 for item in business_reviews.values() if item.get("status") != "candidate")
     unknown_html = "" if not unknown else f"<div class='unknown'><b>{bilingual(unknown['question'], ZH['unknown_question'])}</b><p>{bilingual(unknown['reason_unanswered'], ZH['unknown_reason'])}</p></div>"
     return f"""<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Uteki · Business Map Review</title>
 <style>
-:root{{--ink:#18211d;--muted:#6b746f;--bg:#f5f6f2;--panel:#fff;--line:#dfe3dd;--green:#21634a;--soft:#edf3ef;--amber:#a56220;--red:#a43f39}}*{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 ui-sans-serif,-apple-system,"PingFang SC","Segoe UI",sans-serif}}[data-lang=zh]{{display:none}}body.zh [data-lang=en]{{display:none}}body.zh [data-lang=zh]{{display:inline}}header{{height:58px;border-bottom:1px solid var(--line);background:white;display:flex;align-items:center;justify-content:space-between;padding:0 24px}}.brand{{font-weight:700;letter-spacing:.02em}}.brand span{{color:var(--green)}}.toolbar{{display:flex;gap:16px;align-items:center;color:var(--muted)}}.lang button{{border:0;background:none;padding:5px;color:var(--muted);cursor:pointer}}.lang button.on{{color:var(--ink);font-weight:700}}main{{display:grid;grid-template-columns:390px minmax(0,1fr);height:calc(100vh - 58px)}}aside{{border-right:1px solid var(--line);background:#fafbf8;overflow:auto}}.aside-head{{padding:22px 20px 14px;border-bottom:1px solid var(--line)}}h1{{font-size:18px;margin:0 0 6px}}.summary{{color:var(--muted);font-size:13px;margin:0}}.counts{{display:flex;gap:18px;margin-top:13px;font-size:12px;color:var(--muted)}}.counts b{{color:var(--ink)}}.section-label{{padding:16px 20px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}}.result-row{{width:100%;display:grid;grid-template-columns:20px 1fr 12px;gap:7px;align-items:center;text-align:left;border:0;border-left:3px solid transparent;background:none;padding:10px 18px;cursor:pointer;color:var(--ink)}}.result-row:hover{{background:var(--soft)}}.result-row.active{{background:#e8f0eb;border-left-color:var(--green)}}.result-row small{{display:block;color:var(--muted);font-size:10px;text-transform:uppercase}}.tree-mark{{color:#9ba69f}}.dot{{width:7px;height:7px;border-radius:50%;background:#adb5b0}}.dot.accepted{{background:var(--green)}}.dot.rejected{{background:var(--red)}}.dot.ambiguous{{background:var(--amber)}}.relationships{{padding:0 18px 25px}}table{{border-collapse:collapse;width:100%;font-size:11px}}td{{border-bottom:1px solid var(--line);padding:7px 4px;vertical-align:top}}td:nth-child(-n+3){{white-space:nowrap;color:var(--muted)}}.workspace{{overflow:auto;padding:28px 34px 80px}}.workspace-head{{max-width:920px;margin:auto 18px auto;display:flex;justify-content:space-between;align-items:end;border-bottom:1px solid var(--line);padding-bottom:13px}}.workspace-head h3{{margin:0;font-size:13px}}.workspace-head p{{margin:3px 0 0;color:var(--muted);font-size:12px}}.detail{{display:none;max-width:920px;margin:0 auto}}.detail.active{{display:block}}.detail-title{{display:flex;justify-content:space-between;align-items:start;padding:28px 0 18px}}.detail-title h2{{font:500 30px/1.1 Georgia,"Songti SC",serif;margin:4px 0}}.eyebrow{{font-size:10px;color:var(--green);letter-spacing:.12em;text-transform:uppercase}}.state{{font-size:11px;border:1px solid var(--line);border-radius:20px;padding:4px 9px;color:var(--muted)}}.field{{display:grid;grid-template-columns:180px 1fr;border-top:1px solid var(--line);padding:15px 0}}.field>label{{font-size:12px;color:var(--muted)}}.field p{{margin:0}}.evidence-block{{align-items:start}}.evidence-row{{display:grid;grid-template-columns:52px 1fr 20px;gap:10px;background:white;border:1px solid var(--line);padding:11px;margin-bottom:7px}}.evidence-index{{font-weight:700;color:var(--green)}}code{{font-size:10px;color:var(--muted)}}.path{{font-size:10px;color:var(--muted);margin-left:7px}}.evidence-row a{{color:var(--green);text-decoration:none}}.review-form{{margin-top:22px;background:#fff;border:1px solid var(--line);padding:18px;display:grid;grid-template-columns:180px 1fr;gap:14px}}.review-form label{{display:contents}}.review-form select,.review-form textarea{{width:100%;border:1px solid var(--line);padding:9px;background:white;font:inherit}}.review-form textarea{{min-height:70px;resize:vertical}}.review-form button{{grid-column:2;width:max-content;border:0;background:var(--green);color:white;padding:9px 17px;cursor:pointer}}.unknown{{max-width:920px;margin:30px auto 0;border-left:3px solid var(--amber);padding:9px 14px;background:#fff9ee}}.unknown p{{margin:4px 0;color:var(--muted)}}@media(max-width:820px){{main{{grid-template-columns:1fr;height:auto}}aside{{border-right:0;border-bottom:1px solid var(--line)}}.workspace{{padding:20px}}.field,.review-form{{grid-template-columns:1fr}}.review-form label{{display:block}}.review-form button{{grid-column:1}}}}
+:root{{--ink:#17201b;--muted:#69736d;--bg:#f7f8f5;--line:#d8ddd7;--line-strong:#b9c2bb;--green:#1f6047;--soft:#eef3ef;--amber:#9b5d1d}}*{{box-sizing:border-box}}html{{scroll-behavior:smooth}}body{{margin:0;background:var(--bg);color:var(--ink);font:13px/1.45 ui-sans-serif,-apple-system,"PingFang SC","Segoe UI",sans-serif}}[data-lang=zh]{{display:none}}body.zh [data-lang=en]{{display:none}}body.zh [data-lang=zh]{{display:inline}}header{{position:sticky;top:0;z-index:5;height:52px;border-bottom:1px solid var(--line-strong);background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 22px}}.brand{{font-weight:700}}.brand span{{color:var(--green)}}.toolbar,.nav{{display:flex;gap:16px;align-items:center;color:var(--muted)}}.nav a{{color:var(--muted);text-decoration:none}}.nav a:hover{{color:var(--green)}}.lang button{{border:0;background:none;padding:4px;color:var(--muted);cursor:pointer}}.lang button.on{{color:var(--ink);font-weight:700}}main{{padding:0 22px 70px;max-width:1800px;margin:auto}}.intro{{display:grid;grid-template-columns:170px minmax(0,850px) 1fr;gap:24px;padding:24px 0 20px;border-bottom:1px solid var(--line-strong)}}h1{{font-size:18px;margin:0}}.intro p{{margin:0;color:var(--muted)}}.counts{{display:flex;justify-content:flex-end;gap:20px;color:var(--muted)}}.counts b{{color:var(--ink)}}section.workspace{{padding-top:26px;scroll-margin-top:58px}}.section-head{{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}}.step{{font:11px ui-monospace,monospace;color:var(--green)}}h2{{font-size:16px;margin:0}}.section-head p{{margin:0;color:var(--muted)}}.table-wrap{{overflow-x:auto;border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line-strong)}}table{{border-collapse:collapse;width:100%;min-width:1100px;background:#fff}}th{{position:sticky;top:52px;z-index:2;background:#edf1ed;text-align:left;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}}th,td{{padding:8px 9px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);vertical-align:top}}tr:last-child td{{border-bottom:0}}td:last-child,th:last-child{{border-right:0}}.source-table th:nth-child(1){{width:58px}}.source-table th:nth-child(2){{width:210px}}.source-table th:nth-child(3){{width:42%}}.source-table th:nth-child(4){{width:25%}}.source-table th:nth-child(5){{width:110px}}.source-text{{font-family:Georgia,"Songti SC",serif;font-size:13px}}.mono{{font:10px ui-monospace,SFMono-Regular,monospace;color:var(--muted)}}a{{color:var(--green)}}.sheet{{min-width:1380px;border-top:1px solid var(--line-strong);background:#fff}}.sheet-head,.sheet-record{{display:grid;grid-template-columns:155px 1.25fr .9fr .9fr 105px 260px}}.sheet-head{{position:sticky;top:52px;z-index:2;background:#edf1ed;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em}}.sheet-head>div,.sheet-record>div,.sheet-record>form{{padding:8px 9px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}}.sheet-record:hover{{background:#fbfcfa}}.identity{{display:grid;grid-template-columns:16px 1fr}}.identity small{{grid-column:2;color:var(--muted);font-size:9px;text-transform:uppercase}}.tree{{color:#9aa49d}}.evidence-links a{{display:block;font:10px ui-monospace,monospace}}.inline-review{{display:grid;grid-template-columns:92px 1fr 46px;gap:5px;align-content:start}}select,input,button{{font:inherit;border:1px solid var(--line-strong);background:white;padding:6px;min-width:0}}button{{background:var(--green);border-color:var(--green);color:white;cursor:pointer}}.subsection{{margin-top:24px}}.relation-table{{max-width:900px;min-width:700px}}.unknown{{border-top:1px solid var(--line-strong);border-bottom:1px solid var(--line);padding:10px 9px;background:#fffaf0}}.unknown p{{display:inline;margin-left:18px;color:var(--muted)}}@media(max-width:800px){{header{{padding:0 12px}}.nav{{display:none}}main{{padding:0 12px 50px}}.intro{{grid-template-columns:1fr}}.counts{{justify-content:flex-start}}}}
 </style></head><body>
-<header><div class="brand"><span>Uteki</span> / Review Workbench</div><div class="toolbar"><span>SEC 10-K · FY2025</span><div class="lang"><button id="en">EN</button><button id="zh" class="on">中文</button></div></div></header>
-<main><aside><div class="aside-head"><h1>{bilingual('Analysis result','分析结果')}</h1><p class="summary">{bilingual(data['summary'], ZH['summary'])}</p><div class="counts"><span><b>{len(data['businesses'])}</b> {bilingual('businesses','项业务')}</span><span><b>{len(data['relationships'])}</b> {bilingual('relationships','条关系')}</span><span><b>{reviewed}</b> {bilingual('reviewed','已审核')}</span></div></div><div class="section-label">Business map</div>{''.join(rows)}<div class="section-label">Relationships</div><div class="relationships"><table>{relationships}</table></div></aside>
-<section class="workspace"><div class="workspace-head"><div><h3>{bilingual('Annotation & review','标注与审核')}</h3><p>{bilingual('Select one result on the left, verify evidence, then record one decision.','从左侧选择一项结果，核验证据，再记录一次审核决定。')}</p></div></div>{''.join(details)}{unknown_html}</section></main>
+<header><div class="brand"><span>Uteki</span> / Review Workbench</div><nav class="nav"><a href="#source">{bilingual('01 Parsed source','01 解析原始数据')}</a><a href="#result">{bilingual('02 Result & review','02 结果与标注')}</a></nav><div class="toolbar"><span>Alphabet · 10-K · FY2025</span><div class="lang"><button id="en">EN</button><button id="zh" class="on">中文</button></div></div></header>
+<main><div class="intro"><h1>{bilingual('Company business map','公司业务地图')}</h1><p>{bilingual(data['summary'], ZH['summary'])}</p><div class="counts"><span><b>{len(data['evidence'])}</b> {bilingual('source rows','条原始数据')}</span><span><b>{len(data['businesses'])}</b> {bilingual('results','项结果')}</span><span><b>{reviewed}</b> {bilingual('reviewed','已审核')}</span></div></div>
+<section class="workspace" id="source"><div class="section-head"><span class="step">01</span><h2>{bilingual('Parsed source data','解析原始数据')}</h2><p>{bilingual('Normalized rows used by this result; original filing text remains authoritative.','本次结果实际使用的规范化数据行；申报原文始终是事实依据。')}</p></div><div class="table-wrap"><table class="source-table"><thead><tr><th>Row</th><th>{bilingual('Section path','章节路径')}</th><th>{bilingual('Original text','英文原文')}</th><th>{bilingual('Extraction meaning','提取含义')}</th><th>Hash / SEC</th></tr></thead><tbody>{source_rows}</tbody></table></div></section>
+<section class="workspace" id="result"><div class="section-head"><span class="step">02</span><h2>{bilingual('Analysis result & annotation','分析结果与标注')}</h2><p>{bilingual('Review every row in place; no result is hidden.','直接逐行审核，所有结果保持可见。')}</p></div><div class="table-wrap"><div class="sheet"><div class="sheet-head"><div>{bilingual('Business','业务')}</div><div>{bilingual('Description','业务描述')}</div><div>{bilingual('Products / services','产品与服务')}</div><div>{bilingual('Monetization','变现方式')}</div><div>{bilingual('Evidence','证据')}</div><div>{bilingual('Decision / note','结论与备注')}</div></div>{business_rows}</div></div>
+<div class="subsection section-head"><h2>{bilingual('Relationships','业务关系')}</h2></div><div class="table-wrap"><table class="relation-table"><tbody>{relationships}</tbody></table></div>
+<div class="subsection section-head"><h2>{bilingual('Unresolved','尚未解决')}</h2></div>{unknown_html}</section></main>
 <script>
 const body=document.body; function language(v){{body.classList.toggle('zh',v==='zh');document.querySelectorAll('.lang button').forEach(b=>b.classList.toggle('on',b.id===v));localStorage.setItem('uteki-lang',v)}}
 document.getElementById('en').onclick=()=>language('en');document.getElementById('zh').onclick=()=>language('zh');language(localStorage.getItem('uteki-lang')||'zh');
-document.querySelectorAll('[data-select]').forEach(row=>row.onclick=()=>{{document.querySelectorAll('[data-select]').forEach(x=>x.classList.remove('active'));document.querySelectorAll('[data-detail]').forEach(x=>x.classList.remove('active'));row.classList.add('active');document.querySelector(`[data-detail="${{row.dataset.select}}"]`).classList.add('active')}});
 </script></body></html>"""
 
 
