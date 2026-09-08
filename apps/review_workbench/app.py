@@ -10,27 +10,9 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA = ROOT / "benchmarks/alphabet_2025_business_map/v0.1-candidate/business_map.json"
+CLAIMS_DATA = ROOT / "benchmarks/alphabet_2025_business_map/v0.1-candidate/claims.json"
+SPANS_DATA = ROOT / "benchmarks/alphabet_2025_business_map/v0.1-candidate/evidence_spans.json"
 SOURCE_EXCERPT = ROOT / "data/source_documents/alphabet_2025_10k/review_excerpt.json"
-REVIEW_FILE = ROOT / "data/evaluation/reviews/alphabet_2025_business_map_review.json"
-
-ZH_DESCRIPTION = {
-    "alphabet": "由多项业务组成的公司，其中规模最大的业务是 Google。",
-    "google": "Alphabet 最大的业务，通过 Google Services 与 Google Cloud 两个分部报告。",
-    "google-services": "面向消费者的产品与平台，以广告为主要收入来源，并包含订阅、平台和设备收入。",
-    "google-advertising": "来自 Google Search 及其他自有媒体、YouTube 和 Google Network 的广告业务。",
-    "google-spd": "Google Services 中包含消费者订阅、平台、设备及其他产品服务的收入类别。",
-    "google-cloud": "面向企业提供基础设施、平台、应用、通信协作及其他云服务。",
-    "google-cloud-platform": "提供基础设施、平台、企业 AI、网络安全以及数据分析等服务。",
-    "google-workspace": "带有 Gemini 功能的企业云通信与协作工具。",
-    "other-bets": "统一报告的非 Google 业务组合，处于不同研发和商业化阶段。",
-}
-
-ISSUES = (
-    ("missing_node", "遗漏节点"), ("extra_node", "多余节点"),
-    ("duplicate_node", "重复节点"), ("wrong_parent", "父级错误"),
-    ("wrong_type", "类型错误"), ("wrong_description", "描述错误"),
-    ("wrong_financial", "财务数字错误"), ("wrong_evidence", "证据错误"),
-)
 
 
 def load_json(path: Path) -> dict:
@@ -53,148 +35,219 @@ def parent_and_children(data: dict) -> tuple[dict[str, str], dict[str, list[str]
     return parents, children
 
 
-def evidence_ordinals(item: dict, evidence: dict[str, dict]) -> list[int]:
-    return sorted({evidence[value]["paragraph_ordinal"] for value in item.get("evidence_ids", []) if value in evidence})
+def validate_claims(data: dict, claims_data: dict, excerpt: dict, spans_data: dict | None = None) -> None:
+    spans_data = spans_data or load_json(SPANS_DATA)
+    business_ids = {item["id"] for item in data["businesses"]}
+    evidence = {item["id"]: item for item in data["evidence"]}
+    paragraphs = {item["ordinal"]: item for item in excerpt["paragraphs"]}
+    claim_ids: set[str] = set()
+    expected_links: set[tuple[str, str]] = set()
+    for claim in claims_data["claims"]:
+        if claim["id"] in claim_ids:
+            raise ValueError(f"duplicate claim id: {claim['id']}")
+        claim_ids.add(claim["id"])
+        if claim["business_id"] not in business_ids:
+            raise ValueError(f"unknown business in claim: {claim['id']}")
+        if not claim.get("evidence_ids"):
+            raise ValueError(f"claim has no evidence: {claim['id']}")
+        for evidence_id in claim["evidence_ids"]:
+            expected_links.add((claim["id"], evidence_id))
+            if evidence_id not in evidence:
+                raise ValueError(f"unknown evidence {evidence_id} in claim {claim['id']}")
+            reference = evidence[evidence_id]
+            paragraph = paragraphs.get(reference["paragraph_ordinal"])
+            if not paragraph or paragraph["text_hash"] != reference["text_hash"]:
+                raise ValueError(f"evidence does not resolve to source: {evidence_id}")
+    actual_links: set[tuple[str, str]] = set()
+    for span in spans_data["spans"]:
+        key = (span["claim_id"], span["evidence_id"])
+        if key in actual_links:
+            raise ValueError(f"duplicate evidence span: {key[0]} / {key[1]}")
+        actual_links.add(key)
+        if key not in expected_links:
+            raise ValueError(f"orphan evidence span: {key[0]} / {key[1]}")
+        reference = evidence[key[1]]
+        paragraph = paragraphs[reference["paragraph_ordinal"]]
+        if span["quote_en"] not in paragraph["text"]:
+            raise ValueError(f"English quote does not match source: {key[0]} / {key[1]}")
+        if span["quote_zh"] not in paragraph["translation_zh"]:
+            raise ValueError(f"Chinese quote does not match translation: {key[0]} / {key[1]}")
+    missing_links = expected_links - actual_links
+    if missing_links:
+        claim_id, evidence_id = sorted(missing_links)[0]
+        raise ValueError(f"claim evidence has no exact span: {claim_id} / {evidence_id}")
+
+
+def span_index(spans_data: dict) -> dict[tuple[str, str], dict]:
+    return {(item["claim_id"], item["evidence_id"]): item for item in spans_data["spans"]}
+
+
+def evidence_context(data: dict, excerpt: dict) -> tuple[dict[str, dict], dict[int, dict]]:
+    evidence = {item["id"]: item for item in data["evidence"]}
+    paragraphs = {item["ordinal"]: item for item in excerpt["paragraphs"]}
+    return evidence, paragraphs
+
+
+def claim_ordinals(claim: dict, evidence: dict[str, dict]) -> list[int]:
+    return list(dict.fromkeys(evidence[value]["paragraph_ordinal"] for value in claim["evidence_ids"]))
+
+
+def preview(value: str, length: int = 92) -> str:
+    normalized = " ".join(value.split())
+    return normalized if len(normalized) <= length else normalized[: length - 1].rstrip() + "…"
 
 
 def render_tree(data: dict, selected: str) -> str:
     businesses = {item["id"]: item for item in data["businesses"]}
-    evidence = {item["id"]: item for item in data["evidence"]}
     _, children = parent_and_children(data)
 
     def branch(item_id: str) -> str:
         item = businesses[item_id]
         nested = children.get(item_id, [])
         revenue = next((value for value in item.get("importance_signals", []) if "2025 revenue:" in value), "")
-        ordinals = ",".join(str(value) for value in evidence_ordinals(item, evidence))
         child_html = "" if not nested else f"<ul>{''.join(branch(value) for value in nested)}</ul>"
         toggle = "<button class='toggle' type='button' aria-label='Toggle'>⌄</button>" if nested else "<span class='toggle-space'></span>"
-        return f"""<li data-branch='{esc(item_id)}'>{toggle}<button type='button' class='tree-node {'active' if item_id == selected else ''}' data-select='{esc(item_id)}' data-ordinals='{ordinals}'>
+        return f"""<li data-branch='{esc(item_id)}'>{toggle}<button type='button' class='tree-node {'active' if item_id == selected else ''}' data-select='{esc(item_id)}'>
           <span class='node-main'><strong>{esc(item['name'])}</strong><small>{esc(item['kind'])}</small></span><span class='node-metric'>{esc(revenue.replace('2025 revenue: ', ''))}</span>
         </button>{child_html}</li>"""
 
     return f"<ul class='tree'>{''.join(branch(value) for value in children.get('__root__', []))}</ul>"
 
 
-def render_result_details(data: dict, selected: str) -> str:
-    evidence = {item["id"]: item for item in data["evidence"]}
-    parents, _ = parent_and_children(data)
-    businesses = {item["id"]: item for item in data["businesses"]}
+def render_evidence_cards(claim: dict, evidence: dict[str, dict], paragraphs: dict[int, dict], spans: dict[tuple[str, str], dict]) -> str:
+    cards = []
+    total = len(claim["evidence_ids"])
+    for index, evidence_id in enumerate(claim["evidence_ids"], start=1):
+        reference = evidence[evidence_id]
+        paragraph = paragraphs[reference["paragraph_ordinal"]]
+        anchor = spans[(claim["id"], evidence_id)]
+        cards.append(f"""<button type='button' class='evidence-card' data-evidence='{esc(evidence_id)}' data-ordinal='{reference['paragraph_ordinal']}'>
+          <span class='evidence-index'>{index}/{total}</span><span class='evidence-location'>¶{reference['paragraph_ordinal']} · {bilingual('source','原文')}</span>
+          <span class='evidence-snippet' data-quote-en='{esc(anchor['quote_en'])}' data-quote-zh='{esc(anchor['quote_zh'])}'>{bilingual(preview(anchor['quote_en']), preview(anchor['quote_zh']))}</span>
+        </button>""")
+    return "".join(cards)
+
+
+def render_knowledge_details(data: dict, claims_data: dict, excerpt: dict, spans_data: dict, selected: str) -> str:
+    evidence, paragraphs = evidence_context(data, excerpt)
+    spans = span_index(spans_data)
+    claims_by_business: dict[str, list[dict]] = {}
+    for claim in claims_data["claims"]:
+        claims_by_business.setdefault(claim["business_id"], []).append(claim)
     rendered = []
     for item in data["businesses"]:
-        evidence_buttons = "".join(
-            f"<button type='button' class='evidence-link' data-jump='{value}'>¶{value}</button>"
-            for value in evidence_ordinals(item, evidence)
-        )
-        signals = "".join(f"<li>{esc(value)}</li>" for value in item.get("importance_signals", [])) or "<li>—</li>"
-        products = " · ".join(item.get("products_services", [])) or "—"
-        parent_name = businesses.get(parents.get(item["id"], ""), {}).get("name", "—")
-        rendered.append(f"""<article class='node-detail {'active' if item['id'] == selected else ''}' data-detail='{esc(item['id'])}'>
-          <div class='detail-kicker'>{esc(item['kind'])}</div><h2>{esc(item['name'])}</h2>
-          <p class='lead'>{bilingual(item['description'], ZH_DESCRIPTION.get(item['id'], item['description']))}</p>
-          <dl><div><dt>{bilingual('Parent','父级')}</dt><dd>{esc(parent_name)}</dd></div><div><dt>{bilingual('Disclosed scale','披露规模')}</dt><dd><ul>{signals}</ul></dd></div><div><dt>{bilingual('Products / components','产品与组成')}</dt><dd>{esc(products)}</dd></div><div><dt>{bilingual('Source evidence','原文证据')}</dt><dd class='evidence-buttons'>{evidence_buttons}</dd></div></dl>
-        </article>""")
+        claim_rows = []
+        for index, claim in enumerate(claims_by_business.get(item["id"], [])):
+            ordinals = ",".join(str(value) for value in claim_ordinals(claim, evidence))
+            claim_rows.append(f"""<article class='claim {'active' if index == 0 else ''}' data-claim='{esc(claim['id'])}' data-ordinals='{ordinals}'>
+              <button type='button' class='claim-main'>
+                <span><span class='claim-label'>{bilingual(claim['label_en'], claim['label_zh'])}</span><strong>{bilingual(claim['value_en'], claim['value_zh'])}</strong></span>
+                <span class='claim-meta'><i>{bilingual('explicit','明确披露') if claim['basis'] == 'explicit' else bilingual('derived','计算所得')}</i><b>{len(claim['evidence_ids'])} {bilingual('sources','条证据')}</b></span>
+              </button>
+              <div class='evidence-cards'>{render_evidence_cards(claim, evidence, paragraphs, spans)}</div>
+            </article>""")
+        rendered.append(f"""<section class='knowledge-detail {'active' if item['id'] == selected else ''}' data-detail='{esc(item['id'])}'>
+          <div class='detail-heading'><div class='detail-kicker'>{esc(item['kind'])}</div><h2>{esc(item['name'])}</h2><p>{bilingual('Every statement below is independently traceable.','下方每一条知识均可独立追溯。')}</p></div>
+          <div class='claim-list'>{''.join(claim_rows)}</div>
+        </section>""")
     return "".join(rendered)
 
 
 def render_source(excerpt: dict) -> str:
     return "".join(
-        f"""<article class='source-row' data-paragraph='{item['ordinal']}'><div class='paragraph-no'>¶{item['ordinal']}</div><div><div class='source-path'>{esc(' › '.join(item['section_path']))}</div><p>{esc(item['text'])}</p><code>{esc(item['text_hash'][:12])}</code></div></article>"""
+        f"""<article class='source-row' data-paragraph='{item['ordinal']}'>
+          <div class='source-marker'><b>¶{item['ordinal']}</b><span></span></div>
+          <div><div class='source-path'>{esc(' › '.join(item['section_path']))}</div>
+          <p class='source-translation' lang='zh-CN'>{esc(item['translation_zh'])}</p>
+          <div class='original-label'>{bilingual('SEC original','SEC 英文原文')}</div><p class='source-original' lang='en'>{esc(item['text'])}</p>
+          <div class='source-hash'>SHA · {esc(item['text_hash'][:12])}</div></div>
+        </article>"""
         for item in excerpt["paragraphs"]
     )
 
 
-def page_shell(title: str, active: str, body: str, script: str = "") -> str:
-    return f"""<!doctype html><html lang='zh'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>{esc(title)}</title>
+def page_shell(body: str) -> str:
+    return f"""<!doctype html><html lang='zh'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Uteki · Alphabet Standard Answer</title>
 <style>
-:root{{--ink:#202420;--muted:#747b75;--line:#e2e5e1;--line-strong:#c9cec9;--bg:#f7f8f6;--paper:#fff;--green:#1f6549;--green-soft:#eaf3ed;--amber:#a46524}}*{{box-sizing:border-box}}html,body{{height:100%}}body{{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 ui-sans-serif,-apple-system,"PingFang SC","Segoe UI",sans-serif}}[data-lang=zh]{{display:none}}body.zh [data-lang=en]{{display:none}}body.zh [data-lang=zh]{{display:inline}}button,input,textarea,select{{font:inherit}}header{{height:54px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 18px;gap:28px}}.brand{{font-weight:750}}.brand i{{font-style:normal;color:var(--green)}}nav{{display:flex;height:100%}}nav a{{display:flex;align-items:center;padding:0 13px;text-decoration:none;color:var(--muted);border-bottom:2px solid transparent}}nav a.active{{color:var(--ink);border-color:var(--green)}}.run-meta{{margin-left:auto;color:var(--muted);font-size:11px}}.lang button{{border:0;background:none;color:var(--muted);padding:4px;cursor:pointer}}.lang button.on{{color:var(--ink);font-weight:700}}.split{{height:calc(100vh - 54px);display:grid;grid-template-columns:minmax(330px,42%) minmax(360px,58%)}}.result-pane,.source-pane,.tree-pane,.annotation-pane{{min-width:0;overflow:auto;background:var(--paper)}}.result-pane,.tree-pane{{border-right:1px solid var(--line-strong)}}.pane-head{{position:sticky;top:0;z-index:3;background:#fffc;backdrop-filter:blur(12px);min-height:68px;padding:14px 18px;border-bottom:1px solid var(--line)}}.pane-head h1{{font-size:15px;margin:0}}.pane-head p{{margin:3px 0 0;color:var(--muted);font-size:11px}}.tree-wrap{{padding:12px 10px;border-bottom:1px solid var(--line)}}ul.tree,.tree ul{{list-style:none;margin:0;padding-left:0}}.tree ul{{padding-left:20px}}.tree li{{position:relative}}.toggle,.toggle-space{{position:absolute;left:0;top:8px;width:18px;height:22px;border:0;background:none;color:var(--muted);cursor:pointer}}.tree-node{{width:calc(100% - 20px);margin-left:20px;display:flex;align-items:center;gap:8px;text-align:left;border:0;background:none;padding:7px 8px;border-radius:5px;color:var(--ink);cursor:pointer}}.tree-node:hover{{background:#f1f4f1}}.tree-node.active{{background:var(--green-soft);color:#174c38}}.node-main{{min-width:0;flex:1}}.node-main strong,.node-main small{{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.node-main small{{font:8px ui-monospace,monospace;color:var(--muted);text-transform:uppercase}}.node-metric{{font:10px ui-monospace,monospace;color:var(--muted)}}li.collapsed>ul{{display:none}}li.collapsed>.toggle{{transform:rotate(-90deg)}}.detail-stack{{padding:20px 22px 60px}}.node-detail{{display:none;max-width:720px}}.node-detail.active{{display:block}}.detail-kicker{{font:9px ui-monospace,monospace;text-transform:uppercase;color:var(--green)}}h2{{font:600 26px/1.2 Georgia,"Songti SC",serif;margin:4px 0 8px}}.lead{{font-size:14px;margin:0 0 22px}}dl{{margin:0}}dl>div{{display:grid;grid-template-columns:115px 1fr;border-top:1px solid var(--line);padding:11px 0}}dt{{color:var(--muted);font-size:11px}}dd{{margin:0}}dd ul{{margin:0;padding-left:16px}}.evidence-link{{border:0;background:var(--green-soft);color:var(--green);padding:4px 7px;margin:0 5px 5px 0;border-radius:4px;cursor:pointer}}.source-pane{{background:#fbfbfa}}.source-toolbar{{display:flex;justify-content:space-between;align-items:center}}.source-toolbar a{{color:var(--green);text-decoration:none}}.source-document{{max-width:820px;margin:auto;padding:12px 28px 90px;background:#fff;min-height:100%}}.source-row{{display:grid;grid-template-columns:48px 1fr;padding:21px 0;border-bottom:1px solid var(--line);transition:.2s;scroll-margin:90px}}.source-row.active{{background:#fff8d9;box-shadow:0 0 0 10px #fff8d9}}.paragraph-no{{font:10px ui-monospace,monospace;color:var(--muted);padding-top:3px}}.source-path{{font-size:10px;color:var(--muted)}}.source-row p{{font:15px/1.65 Georgia,"Songti SC",serif;margin:8px 0}}code{{font-size:9px;color:#929892}}.annotation-pane{{padding-bottom:60px}}.annotation-detail{{display:none;padding:24px 28px;max-width:760px}}.annotation-detail.active{{display:block}}.verdicts,.issues{{display:flex;flex-wrap:wrap;gap:7px}}.verdicts input,.issues input{{position:absolute;opacity:0;pointer-events:none}}.verdicts span,.issues span{{display:block;border:1px solid var(--line-strong);padding:7px 12px;border-radius:5px;background:#fff;cursor:pointer}}.verdicts input:checked+span{{background:var(--green);border-color:var(--green);color:white}}.issues input:checked+span{{background:#fff3df;border-color:#d59a51;color:#7f4914}}.form-section{{border-top:1px solid var(--line);padding:16px 0}}.form-section h3{{font-size:11px;margin:0 0 9px;color:var(--muted);font-weight:500}}.fields{{display:grid;grid-template-columns:1fr 1fr;gap:10px}}.fields label{{font-size:10px;color:var(--muted)}}.fields input,.fields textarea,.fields select{{display:block;width:100%;margin-top:4px;border:1px solid var(--line-strong);padding:8px;background:#fff}}.fields textarea{{min-height:78px;resize:vertical}}.savebar{{position:sticky;bottom:0;background:#fffe;border-top:1px solid var(--line);padding:10px 28px;display:flex;justify-content:flex-end}}.primary{{border:0;background:var(--green);color:white;padding:9px 16px;border-radius:5px;cursor:pointer}}@media(max-width:760px){{header{{gap:10px;padding:0 10px}}nav a{{padding:0 8px;font-size:11px}}.run-meta{{display:none}}.split{{grid-template-columns:300px minmax(390px,1fr)}}.detail-stack{{padding:16px}}.source-document{{padding:8px 18px 70px}}}}
-.savebar{{position:static;background:transparent;margin-top:4px;padding:16px 0}}
+:root{{--ink:#202420;--soft:#555d56;--muted:#79807a;--line:#e1e5e1;--line2:#cbd1cc;--paper:#fff;--wash:#f7f8f6;--green:#1d6548;--green2:#e9f3ed;--yellow:#fff7cf}}*{{box-sizing:border-box}}html,body{{height:100%}}body{{margin:0;background:var(--wash);color:var(--ink);font:13px/1.5 ui-sans-serif,-apple-system,"PingFang SC","Segoe UI",sans-serif}}[data-lang=zh]{{display:none}}body.zh [data-lang=en]{{display:none}}body.zh [data-lang=zh]{{display:inline}}button{{font:inherit}}header{{height:54px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 18px;gap:28px}}.brand{{font-weight:750}}.brand i{{font-style:normal;color:var(--green)}}.page-name{{font-weight:650}}.status{{color:var(--green);background:var(--green2);padding:3px 7px;border-radius:4px;font-size:10px}}.meta{{margin-left:auto;color:var(--muted);font-size:11px}}.lang button{{border:0;background:none;color:var(--muted);padding:4px;cursor:pointer}}.lang button.on{{color:var(--ink);font-weight:700}}.split{{height:calc(100vh - 54px);display:grid;grid-template-columns:minmax(430px,45%) minmax(470px,55%)}}.knowledge-pane,.source-pane{{min-width:0;overflow:auto;background:var(--paper)}}.knowledge-pane{{border-right:1px solid var(--line2)}}.pane-head{{position:sticky;top:0;z-index:4;background:#fffd;backdrop-filter:blur(12px);min-height:68px;padding:13px 18px;border-bottom:1px solid var(--line)}}.pane-head h1{{font-size:15px;margin:0}}.pane-head p{{font-size:11px;color:var(--muted);margin:3px 0 0}}.source-head{{display:flex;align-items:center;justify-content:space-between}}.source-head a{{color:var(--green);text-decoration:none}}.tree-wrap{{padding:10px;border-bottom:1px solid var(--line)}}ul.tree,.tree ul{{list-style:none;margin:0;padding-left:0}}.tree ul{{padding-left:20px}}.tree li{{position:relative}}.toggle,.toggle-space{{position:absolute;left:0;top:7px;width:18px;height:22px;border:0;background:none;color:var(--muted);cursor:pointer}}li.collapsed>ul{{display:none}}li.collapsed>.toggle{{transform:rotate(-90deg)}}.tree-node{{width:calc(100% - 20px);margin-left:20px;display:flex;align-items:center;gap:8px;text-align:left;border:0;background:none;padding:6px 8px;border-radius:5px;color:var(--ink);cursor:pointer}}.tree-node:hover{{background:#f2f4f2}}.tree-node.active{{background:var(--green2);color:#174d38}}.node-main{{min-width:0;flex:1}}.node-main strong,.node-main small{{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.node-main small{{font:8px ui-monospace,monospace;color:var(--muted);text-transform:uppercase}}.node-metric{{font:10px ui-monospace,monospace;color:var(--muted)}}.knowledge-detail{{display:none;padding:22px 20px 70px}}.knowledge-detail.active{{display:block}}.detail-kicker{{font:9px ui-monospace,monospace;text-transform:uppercase;color:var(--green)}}h2{{font:600 27px/1.2 Georgia,"Songti SC",serif;margin:3px 0 5px}}.detail-heading p{{color:var(--muted);margin:0 0 20px}}.claim-list{{border-top:1px solid var(--line2)}}.claim{{border-bottom:1px solid var(--line)}}.claim-main{{width:100%;border:0;background:#fff;padding:12px 2px;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;text-align:left;color:var(--ink);cursor:pointer}}.claim-main:hover{{background:#fafbf9}}.claim-label{{display:block;color:var(--muted);font-size:10px;margin-bottom:3px}}.claim-main strong{{display:block;font-weight:550;line-height:1.55}}.claim-meta{{flex:none;display:flex;align-items:center;gap:5px;padding-top:2px}}.claim-meta i,.claim-meta b{{font-style:normal;font-weight:500;font-size:9px;padding:3px 5px;border-radius:3px}}.claim-meta i{{color:var(--green);background:var(--green2)}}.claim-meta b{{color:var(--muted);border:1px solid var(--line)}}.evidence-cards{{display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:0 0 12px}}.claim.active .evidence-cards{{display:grid}}.claim.active>.claim-main{{color:var(--green)}}.evidence-card{{border:1px solid var(--line);background:#fbfcfa;color:var(--ink);border-radius:5px;padding:8px;text-align:left;cursor:pointer;min-width:0}}.evidence-card:hover,.evidence-card.active{{border-color:#83a994;background:var(--green2)}}.evidence-index{{font:700 9px ui-monospace,monospace;color:var(--green);margin-right:6px}}.evidence-location{{font-size:9px;color:var(--muted)}}.evidence-snippet{{display:block;margin-top:5px;font:11px/1.45 Georgia,"Songti SC",serif;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}.source-pane{{background:#fafbf9}}.source-notice{{padding:10px 18px;border-bottom:1px solid #eadf9b;background:#fffbed;color:#665c2b;font-size:10px}}.source-document{{max-width:850px;margin:auto;padding:10px 28px 90px;background:#fff;min-height:100%}}.source-empty{{padding:80px 20px;text-align:center;color:var(--muted)}}.source-row{{display:none;grid-template-columns:48px 1fr;padding:24px 0;border-bottom:1px solid var(--line);scroll-margin:100px}}.source-row.relevant{{display:grid}}.source-row.active{{background:var(--yellow);box-shadow:0 0 0 11px var(--yellow)}}.source-marker{{font:10px ui-monospace,monospace;color:var(--muted);padding-top:3px;display:flex;flex-direction:column;align-items:flex-start;gap:8px}}.source-marker span{{width:16px;height:2px;background:var(--line2)}}.source-path{{font-size:10px;color:var(--muted)}}.source-translation{{display:none;font:15px/1.75 Georgia,"Songti SC",serif;margin:8px 0 12px}}body.zh .source-translation{{display:block}}.original-label{{font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:8px}}body:not(.zh) .original-label{{display:none}}.source-original{{font:15px/1.68 Georgia,"Songti SC",serif;margin:6px 0;color:var(--ink)}}body.zh .source-original{{font-size:12px;line-height:1.6;color:var(--muted);padding-left:10px;border-left:2px solid var(--line)}}.source-hash{{font:9px ui-monospace,monospace;color:#989e99;margin-top:9px}}@media(max-width:900px){{header{{gap:10px;padding:0 10px}}.meta{{display:none}}.split{{grid-template-columns:360px minmax(430px,1fr)}}.evidence-cards{{grid-template-columns:1fr}}.source-document{{padding:8px 18px 70px}}}}
+body.zh .source-notice[data-lang=zh]{{display:block}}
+mark{{background:#ffe36e;color:#1d251f;padding:1px 2px;border-radius:2px}}
 </style></head><body>
-<header><div class='brand'><i>Uteki</i> / Eval</div><nav><a class='{'active' if active == 'result' else ''}' href='/result'>{bilingual('Run result','运行结果')}</a><a class='{'active' if active == 'annotate' else ''}' href='/annotate'>{bilingual('Benchmark annotation','Benchmark 标注')}</a></nav><div class='run-meta'>Alphabet · FY2025 10-K · Candidate v0.1</div><div class='lang'><button id='en'>EN</button><button id='zh'>中文</button></div></header>{body}
-<script>const body=document.body;function language(v){{body.classList.toggle('zh',v==='zh');document.querySelectorAll('.lang button').forEach(b=>b.classList.toggle('on',b.id===v));localStorage.setItem('uteki-lang',v)}}document.getElementById('en').onclick=()=>language('en');document.getElementById('zh').onclick=()=>language('zh');language(localStorage.getItem('uteki-lang')||'zh');document.querySelectorAll('.toggle').forEach(b=>b.onclick=e=>{{e.stopPropagation();b.closest('li').classList.toggle('collapsed')}});{script}</script></body></html>"""
+<header><div class='brand'><i>Uteki</i> / Eval</div><div class='page-name'>{bilingual('Standard answer','标准答案')}</div><span class='status'>Candidate v0.1</span><div class='meta'>Alphabet · FY2025 10-K · field-level provenance</div><div class='lang'><button id='en'>EN</button><button id='zh'>中文</button></div></header>{body}
+<script>
+const body=document.body;
+function language(value){{body.classList.toggle('zh',value==='zh');document.querySelectorAll('.lang button').forEach(button=>button.classList.toggle('on',button.id===value));localStorage.setItem('uteki-lang',value)}}
+function markExact(element,needle){{
+  if(!element)return;const raw=element.dataset.raw||element.textContent;element.dataset.raw=raw;element.textContent='';const index=needle?raw.indexOf(needle):-1;
+  if(index<0){{element.textContent=raw;return}}element.append(document.createTextNode(raw.slice(0,index)));const mark=document.createElement('mark');mark.textContent=needle;element.append(mark,document.createTextNode(raw.slice(index+needle.length)));
+}}
+function showClaim(claim,focusOrdinal,focusEvidence){{
+  document.querySelectorAll('.claim').forEach(value=>value.classList.remove('active'));claim.classList.add('active');
+  document.querySelectorAll('.source-original,.source-translation').forEach(value=>{{if(value.dataset.raw)value.textContent=value.dataset.raw}});
+  const ordinals=claim.dataset.ordinals.split(',').filter(Boolean);
+  document.querySelectorAll('.source-row').forEach(row=>{{row.classList.toggle('relevant',ordinals.includes(row.dataset.paragraph));row.classList.remove('active')}});
+  const sourceDocument=document.querySelector('.source-document');ordinals.forEach(ordinal=>{{const value=document.querySelector(`.source-row[data-paragraph="${{ordinal}}"]`);if(value)sourceDocument.appendChild(value)}});
+  const target=String(focusOrdinal||ordinals[0]||'');const cards=Array.from(claim.querySelectorAll('.evidence-card'));const activeCard=cards.find(card=>focusEvidence?card.dataset.evidence===focusEvidence:card.dataset.ordinal===target)||cards[0];
+  const row=document.querySelector(`.source-row[data-paragraph="${{target}}"]`);if(row){{row.classList.add('active');const anchor=activeCard?.querySelector('.evidence-snippet');markExact(row.querySelector('.source-original'),anchor?.dataset.quoteEn||'');markExact(row.querySelector('.source-translation'),anchor?.dataset.quoteZh||'');row.scrollIntoView({{behavior:'smooth',block:'center'}})}}
+  document.querySelectorAll('.evidence-card').forEach(card=>card.classList.toggle('active',card===activeCard));
+}}
+function selectNode(button){{
+  document.querySelectorAll('.tree-node').forEach(value=>value.classList.remove('active'));document.querySelectorAll('.knowledge-detail').forEach(value=>value.classList.remove('active'));button.classList.add('active');
+  const detail=document.querySelector(`[data-detail="${{button.dataset.select}}"]`);detail.classList.add('active');const first=detail.querySelector('.claim');if(first)showClaim(first);
+}}
+document.getElementById('en').onclick=()=>language('en');document.getElementById('zh').onclick=()=>language('zh');language(localStorage.getItem('uteki-lang')||'zh');
+document.querySelectorAll('.toggle').forEach(button=>button.onclick=event=>{{event.stopPropagation();button.closest('li').classList.toggle('collapsed')}});
+document.querySelectorAll('.tree-node').forEach(button=>button.onclick=()=>selectNode(button));
+document.querySelectorAll('.claim-main').forEach(button=>button.onclick=()=>showClaim(button.closest('.claim')));
+document.querySelectorAll('.evidence-card').forEach(button=>button.onclick=event=>{{event.stopPropagation();showClaim(button.closest('.claim'),button.dataset.ordinal,button.dataset.evidence)}});
+selectNode(document.querySelector('.tree-node.active'));
+</script></body></html>"""
 
 
-def render_result_page(data: dict, excerpt: dict, selected: str | None = None) -> str:
+def render_result_page(data: dict, excerpt: dict, selected: str | None = None, claims_data: dict | None = None, spans_data: dict | None = None) -> str:
+    claims_data = claims_data or load_json(CLAIMS_DATA)
+    spans_data = spans_data or load_json(SPANS_DATA)
+    validate_claims(data, claims_data, excerpt, spans_data)
     selected = selected if any(item["id"] == selected for item in data["businesses"]) else data["businesses"][0]["id"]
-    body = f"""<main class='split'><section class='result-pane'><div class='pane-head'><h1>{bilingual('Extracted business map','提取业务结构')}</h1><p>{bilingual('Select a node; its exact 10-K evidence is highlighted on the right.','点击节点，右侧定位并高亮对应的 10-K 原文。')}</p></div><div class='tree-wrap'>{render_tree(data, selected)}</div><div class='detail-stack'>{render_result_details(data, selected)}</div></section><section class='source-pane'><div class='pane-head source-toolbar'><div><h1>Alphabet FY2025 10-K</h1><p>{bilingual('Authoritative source · evidence review excerpt','权威原文 · 证据审核摘录')}</p></div><a href='{esc(data['evidence'][0]['source_url'])}' target='_blank'>SEC ↗</a></div><div class='source-document'>{render_source(excerpt)}</div></section></main>"""
-    script = """function highlight(csv){const ids=new Set(csv.split(',').filter(Boolean));document.querySelectorAll('.source-row').forEach(x=>x.classList.toggle('active',ids.has(x.dataset.paragraph)));const first=document.querySelector('.source-row.active');if(first)first.scrollIntoView({behavior:'smooth',block:'center'})}function selectNode(button){document.querySelectorAll('.tree-node').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.node-detail').forEach(x=>x.classList.remove('active'));button.classList.add('active');document.querySelector(`[data-detail="${button.dataset.select}"]`).classList.add('active');highlight(button.dataset.ordinals)}document.querySelectorAll('.tree-node').forEach(x=>x.onclick=()=>selectNode(x));document.querySelectorAll('.evidence-link').forEach(x=>x.onclick=()=>highlight(x.dataset.jump));selectNode(document.querySelector('.tree-node.active'));"""
-    return page_shell("Uteki · Run Result", "result", body, script)
-
-
-def render_annotation_page(data: dict, reviews: dict, selected: str | None = None) -> str:
-    businesses = {item["id"]: item for item in data["businesses"]}
-    selected = selected if selected in businesses else data["businesses"][0]["id"]
-    parents, _ = parent_and_children(data)
-    panels = []
-    for item in data["businesses"]:
-        review = reviews.get("businesses", {}).get(item["id"], {})
-        status = review.get("status", "candidate")
-        issues = set(review.get("issues", []))
-        verdicts = "".join(f"<label><input type='radio' name='status' value='{value}' {'checked' if status == value else ''}><span>{label}</span></label>" for value, label in (("accepted", "正确"), ("edited", "需要修改"), ("rejected", "错误"), ("ambiguous", "无法判断")))
-        issue_html = "".join(f"<label><input type='checkbox' name='issues' value='{value}' {'checked' if value in issues else ''}><span>{label}</span></label>" for value, label in ISSUES)
-        parent_options = "".join(f"<option value='{value['id']}' {'selected' if parents.get(item['id']) == value['id'] else ''}>{esc(value['name'])}</option>" for value in data["businesses"] if value["id"] != item["id"])
-        panels.append(f"""<form class='annotation-detail {'active' if item['id'] == selected else ''}' data-annotation='{esc(item['id'])}' method='post' action='/review'><input type='hidden' name='item_id' value='{esc(item['id'])}'><div class='detail-kicker'>{esc(item['kind'])}</div><h2>{esc(item['name'])}</h2><p class='lead'>{bilingual(item['description'], ZH_DESCRIPTION.get(item['id'], item['description']))}</p><section class='form-section'><h3>{bilingual('Verdict','审核结论')}</h3><div class='verdicts'>{verdicts}</div></section><section class='form-section'><h3>{bilingual('Issues · select all that apply','问题标签 · 可多选')}</h3><div class='issues'>{issue_html}</div></section><section class='form-section'><h3>{bilingual('Correction','人工修订')}</h3><div class='fields'><label>{bilingual('Name','名称')}<input name='corrected_name' value='{esc(review.get('corrected_name', item['name']))}'></label><label>{bilingual('Parent','父级')}<select name='corrected_parent'><option value=''>—</option>{parent_options}</select></label><label style='grid-column:1/-1'>{bilingual('Description','描述')}<textarea name='corrected_description'>{esc(review.get('corrected_description', item['description']))}</textarea></label><label style='grid-column:1/-1'>{bilingual('Review note','审核说明')}<textarea name='note'>{esc(review.get('note', ''))}</textarea></label></div></section><div class='savebar'><button class='primary' type='submit'>{bilingual('Save & next','保存并查看下一项')}</button></div></form>""")
-    done = sum(1 for value in reviews.get("businesses", {}).values() if value.get("status") != "candidate")
-    body = f"""<main class='split'><section class='tree-pane'><div class='pane-head'><h1>{bilingual('Business hierarchy','业务层级目录')}</h1><p>{done} / {len(data['businesses'])} {bilingual('reviewed','已审核')}</p></div><div class='tree-wrap'>{render_tree(data, selected)}</div></section><section class='annotation-pane'><div class='pane-head'><h1>{bilingual('Node annotation','节点标注')}</h1><p>{bilingual('Prediction remains immutable; corrections form the Gold draft.','原始结果保持不变；人工修订形成 Gold 草稿。')}</p></div>{''.join(panels)}</section></main>"""
-    script = """document.querySelectorAll('.tree-node').forEach(x=>x.onclick=()=>{document.querySelectorAll('.tree-node').forEach(n=>n.classList.remove('active'));document.querySelectorAll('.annotation-detail').forEach(n=>n.classList.remove('active'));x.classList.add('active');document.querySelector(`[data-annotation="${x.dataset.select}"]`).classList.add('active')});"""
-    return page_shell("Uteki · Benchmark Annotation", "annotate", body, script)
+    body = f"""<main class='split'><section class='knowledge-pane'>
+      <div class='pane-head'><h1>{bilingual('Alphabet business knowledge','Alphabet 业务知识')}</h1><p>{bilingual('Choose a node, then verify each statement independently.','选择业务节点，再逐条验证名称、描述、规模和产品组成。')}</p></div>
+      <div class='tree-wrap'>{render_tree(data, selected)}</div>{render_knowledge_details(data, claims_data, excerpt, spans_data, selected)}
+    </section><section class='source-pane'>
+      <div class='pane-head source-head'><div><h1>{bilingual('Evidence source','证据原文')}</h1><p>{bilingual('Only sources for the selected statement are shown.','仅展示当前知识条目对应的出处，不伪装成连续全文。')}</p></div><a href='{esc(data['evidence'][0]['source_url'])}' target='_blank'>SEC ↗</a></div>
+      <div class='source-notice' data-lang='zh'>{esc(excerpt['translation']['notice_zh'])}</div><div class='source-document'>{render_source(excerpt)}</div>
+    </section></main>"""
+    return page_shell(body)
 
 
 def render_page(data: dict, reviews: dict) -> str:
     return render_result_page(data, load_json(SOURCE_EXCERPT))
 
 
-def save_review(item_id: str, status: str, note: str, issues: tuple[str, ...] = (), corrected: dict | None = None) -> None:
-    if status not in {"candidate", "accepted", "edited", "rejected", "ambiguous"}:
-        raise ValueError("invalid review status")
-    REVIEW_FILE.parent.mkdir(parents=True, exist_ok=True)
-    value = load_json(REVIEW_FILE) if REVIEW_FILE.exists() else {"businesses": {}}
-    record = {"status": status, "issues": list(issues), "note": note}
-    record.update(corrected or {})
-    value.setdefault("businesses", {})[item_id] = record
-    temporary = REVIEW_FILE.with_suffix(".tmp")
-    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(REVIEW_FILE)
-
-
 def make_handler(data_path: Path):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
-            data = load_json(data_path)
-            reviews = load_json(REVIEW_FILE) if REVIEW_FILE.exists() else {}
-            selected = parse_qs(parsed.query).get("selected", [None])[0]
-            if parsed.path in {"/", "/result"}:
-                body = render_result_page(data, load_json(SOURCE_EXCERPT), selected).encode()
-            elif parsed.path == "/annotate":
-                body = render_annotation_page(data, reviews, selected).encode()
-            else:
+            if parsed.path == "/annotate":
+                self.send_response(303)
+                self.send_header("Location", "/result")
+                self.end_headers()
+                return
+            if parsed.path not in {"/", "/result", "/benchmark"}:
                 self.send_error(404)
                 return
+            selected = parse_qs(parsed.query).get("selected", [None])[0]
+            body = render_result_page(
+                load_json(data_path),
+                load_json(SOURCE_EXCERPT),
+                selected,
+                load_json(CLAIMS_DATA),
+                load_json(SPANS_DATA),
+            ).encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
-
-        def do_POST(self) -> None:
-            if self.path != "/review":
-                self.send_error(404)
-                return
-            length = int(self.headers.get("Content-Length", "0"))
-            fields = parse_qs(self.rfile.read(length).decode())
-            data = load_json(data_path)
-            ids = [item["id"] for item in data["businesses"]]
-            item_id = fields.get("item_id", [""])[0]
-            if item_id not in ids:
-                self.send_error(400, "unknown business id")
-                return
-            corrected = {key: fields.get(key, [""])[0] for key in ("corrected_name", "corrected_parent", "corrected_description")}
-            save_review(item_id, fields.get("status", ["candidate"])[0], fields.get("note", [""])[0], tuple(fields.get("issues", [])), corrected)
-            next_id = ids[(ids.index(item_id) + 1) % len(ids)]
-            self.send_response(303)
-            self.send_header("Location", f"/annotate?selected={next_id}")
-            self.end_headers()
 
         def log_message(self, format: str, *args) -> None:
             return
@@ -209,7 +262,7 @@ def main() -> None:
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
     args = parser.parse_args()
     server = ThreadingHTTPServer((args.host, args.port), make_handler(args.data))
-    print(f"Uteki Review Workbench: http://{args.host}:{args.port}/result")
+    print(f"Uteki Standard Answer: http://{args.host}:{args.port}/result")
     server.serve_forever()
 
 
