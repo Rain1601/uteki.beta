@@ -1,8 +1,26 @@
 __pycache__/
 *.py[cod]
 .venv/
+.env
+.env.*
+!.env.example
 dist/
 build/
 *.egg-info/
 experiments/*/result.json
 data/evaluation/reviews/*.json
+data/research_archive/
+
+# Local work products and machine state
+.DS_Store
+/output/
+/tmp/
+/data/run_budgets/
+*.bak
+*.original
+*.log
+*.lock
+!uv.lock
+/data/reading_library/**/*.zip
+/data/reading_library/alphabet/translations/
+/docs/VIC_ALPHABET_APPLICATION_DRAFT.md

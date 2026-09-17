@@ -1,4 +1,29 @@
-from .models import Document, Paragraph
+from .models import (
+    AssetReference,
+    Document,
+    DocumentIndex,
+    DocumentNode,
+    IndexDiagnostic,
+    Paragraph,
+    ParsedDocument,
+    SourceAnchor,
+    SourceBlock,
+    TableCell,
+    TableStructure,
+    TocEntry,
+)
 
-__all__ = ["Document", "Paragraph"]
-
+__all__ = [
+    "AssetReference",
+    "Document",
+    "DocumentIndex",
+    "DocumentNode",
+    "IndexDiagnostic",
+    "Paragraph",
+    "ParsedDocument",
+    "SourceAnchor",
+    "SourceBlock",
+    "TableCell",
+    "TableStructure",
+    "TocEntry",
+]

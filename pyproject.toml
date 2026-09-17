@@ -7,7 +7,10 @@ name = "uteki-eval"
 version = "0.1.0"
 description = "Evaluation kernel for Uteki"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["lxml>=5,<7"]
+
+[project.optional-dependencies]
+analysis = ["openai-agents==0.22.2"]
 
 [project.scripts]
 uteki-eval = "uteki_eval.cli:main"
@@ -17,4 +20,3 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-

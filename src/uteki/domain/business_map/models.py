@@ -10,11 +10,13 @@ class BusinessKind(StrEnum):
     REPORTABLE_SEGMENT = "reportable_segment"
     BUSINESS = "business"
     OFFERING_GROUP = "offering_group"
+    REVENUE_LINE = "revenue_line"
 
 
 class RelationshipKind(StrEnum):
     REPORTED_UNDER = "reported_under"
     PART_OF = "part_of"
+    REVENUE_COMPONENT_OF = "revenue_component_of"
     SUPPORTS = "supports"
 
 

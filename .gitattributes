@@ -1,0 +1,6 @@
+# Keep source documents and images out of line-based code diffs.
+*.pdf binary
+*.gz binary
+*.png binary
+*.jpg binary
+*.jpeg binary

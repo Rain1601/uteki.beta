@@ -2,7 +2,7 @@
 
 ## 状态
 
-已于 2026-09-06 批准进入实施计划。中文文件为规范性文件，必须与英文配套文件保持语义一致。
+已于 2026-09-06 批准进入实施计划，并于 2026-09-13 补充 Data Agent / Analysis Agent 边界。中文文件为规范性文件，必须与英文配套文件保持语义一致。
 
 ## 决策
 
@@ -61,7 +61,14 @@ uteki.beta/
 
 ### Agent 执行平面
 
-接收有版本的请求与配置，读取允许使用的源材料，生成 Business Map Candidate 和可复现的运行记录。它不知道这次运行属于 Benchmark、Experiment 还是生产任务。
+Agent 执行平面包含两个逻辑角色，但在边界证明需要拆分前仍属于同一个模块化单体：
+
+- **Data Agent** 读取 10-K、10-Q 等批准材料，负责 Source Snapshot、Document Index、结构化事实、指标、Business Map、Evidence 和数据质量诊断；
+- **Analysis Agent** 通过 `ResearchDataPort` 消费 Data Agent 发布的版本化研究数据，负责 Research Question、Primary Bet、Drivers、Risks、To Watch 和 Thesis Candidate。
+
+Data Agent 不产生 Thesis 或投资判断。Analysis Agent 不解析原始 SEC HTML、不修改已发布事实，也不将模型记忆当作公司数据。分析侧发现缺口时提交 `ResearchDataRequest`，由 Data Agent 补充处理后返回新的 `EvidenceBundle`。
+
+M0 现有的 `BusinessMapAgent` 属于 Data Agent 角色。这里的“Agent”是职责边界，不要求立即成为独立进程、服务或仓库。
 
 ### 评测与实验平面
 
@@ -82,6 +89,7 @@ apps/review_workbench -> evaluation -> agents -> domain
                                 \----> domain
 apps/cli ------------> evaluation / agents
 infrastructure ------> 实现 domain 或调用模块拥有的端口
+analysis_agent -------> ResearchDataPort -------> data_agent published data
 ```
 
 规则：
@@ -92,6 +100,8 @@ infrastructure ------> 实现 domain 或调用模块拥有的端口
 4. `apps` 负责组织模块，不包含业务规则或评分规则。
 5. `infrastructure` 通过显式 Port 或 Adapter 使用。
 6. 只有出现两个真实使用方时才增加共享工具；不建立推测性的 `common` 垃圾场。
+7. Analysis Agent 只能通过 `ResearchDataPort` 读取公司研究数据，不能依赖 Data Agent 的 Pipeline 内部实现。
+8. Data Agent 发布的数据对象不可被 Analysis Agent 原地修改；修正必须产生新版本。
 
 ## Agent 公开契约
 
@@ -108,6 +118,22 @@ BusinessMapCandidate + AgentRunRecord
 Request 标识文档和任务契约。Configuration 记录模型、Prompt 版本、工具和运行参数。Result 包含结构化判断与证据。Run Record 包含可复现信息、Trace、成本、延迟、警告和失败。
 
 Gold Answer 和 Benchmark 身份绝不能出现在 Agent Request 中。
+
+M1 开始后，两个角色通过独立公开契约交接：
+
+```text
+ResearchDataQuery
+        ↓
+ResearchDataPort / Data Agent
+        ↓
+EvidenceBundle
+        ↓
+AnalysisAgent.run
+        ↓
+ThesisCandidate + AnalysisRunRecord
+```
+
+具体字段和错误归属见 `DATA_ANALYSIS_AGENT_CONTRACT.zh-CN.md`。
 
 ## 数据隔离
 
@@ -127,4 +153,3 @@ Agent 可以读取批准的源文件并写入运行产物。执行期间不能�
 ## 拆分规则
 
 在真实边界证明需要拆分之前，保持模块化单体。只有多个 Agent Team 共享评测系统、执行需要独立扩缩容、Benchmark 权限需要安全隔离、模块所有权分离，或者发布节奏已经独立时，才考虑拆成不同 Package 或 Service。
-

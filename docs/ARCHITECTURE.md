@@ -2,7 +2,8 @@
 
 ## Status
 
-Approved for implementation planning on 2026-09-06. The Chinese companion is
+Approved for implementation planning on 2026-09-06 and amended on 2026-09-13
+with the Data Agent / Analysis Agent boundary. The Chinese companion is
 normative and must remain semantically identical to this document.
 
 ## Decision
@@ -69,9 +70,25 @@ database, web, benchmark, or experiment dependencies.
 
 ### Agent Execution Plane
 
-Accepts a versioned request and configuration, reads permitted source material,
-and produces a Business Map candidate plus a reproducible run record. It does
-not know whether the run is a benchmark, experiment, or production task.
+The Agent Execution Plane contains two logical roles, while remaining in the
+same modular monolith until an observed boundary justifies separation:
+
+- the **Data Agent** reads approved materials such as 10-Ks and 10-Qs and owns
+  Source Snapshots, Document Indexes, structured facts, metrics, Business Maps,
+  Evidence, and data-quality diagnostics;
+- the **Analysis Agent** consumes versioned research data published by the Data
+  Agent through `ResearchDataPort` and owns Research Questions, Primary Bets,
+  Drivers, Risks, To-Watch items, and Thesis Candidates.
+
+The Data Agent does not produce theses or investment judgments. The Analysis
+Agent does not parse raw SEC HTML, mutate published facts, or treat model
+memory as company data. When analysis finds a gap, it submits a
+`ResearchDataRequest`; the Data Agent processes it and returns a new
+`EvidenceBundle`.
+
+The existing M0 `BusinessMapAgent` belongs to the Data Agent role. Here,
+"Agent" names a responsibility boundary and does not require an independent
+process, service, or repository.
 
 ### Evaluation & Experiment Plane
 
@@ -97,6 +114,7 @@ apps/review_workbench -> evaluation -> agents -> domain
                                 \----> domain
 apps/cli ------------> evaluation / agents
 infrastructure ------> implements ports owned by domain or calling modules
+analysis_agent -------> ResearchDataPort -------> data_agent published data
 ```
 
 Rules:
@@ -109,6 +127,10 @@ Rules:
 5. `infrastructure` is reached through explicit ports or adapters.
 6. Shared utilities are added only when two real consumers exist; there is no
    speculative `common` dumping ground.
+7. The Analysis Agent reads company research data only through
+   `ResearchDataPort` and never depends on Data Agent pipeline internals.
+8. Data Agent outputs are immutable to the Analysis Agent; corrections create
+   a new version.
 
 ## Agent public contract
 
@@ -128,6 +150,22 @@ structured claims and evidence. The run record contains reproducibility,
 trace, cost, latency, warnings, and failures.
 
 Gold answers and benchmark identities are never part of the Agent request.
+
+When M1 begins, the two roles exchange data through separate public contracts:
+
+```text
+ResearchDataQuery
+        ↓
+ResearchDataPort / Data Agent
+        ↓
+EvidenceBundle
+        ↓
+AnalysisAgent.run
+        ↓
+ThesisCandidate + AnalysisRunRecord
+```
+
+See `DATA_ANALYSIS_AGENT_CONTRACT.md` for the fields and error ownership.
 
 ## Data separation
 
@@ -157,4 +195,3 @@ Remain a modular monolith until an observed boundary justifies separation.
 Consider separate packages or services only when multiple Agent teams share
 evaluation, execution needs independent scaling, benchmark access requires
 security isolation, ownership diverges, or release cadences become independent.
-
