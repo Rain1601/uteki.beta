@@ -5,6 +5,7 @@ import gzip
 import html
 import json
 import mimetypes
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -821,7 +822,17 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
+    parser.add_argument("--check", action="store_true", help="Check local inputs without starting the server or writing review state")
     args = parser.parse_args()
+    from apps.review_workbench.workspace_check import format_report, inspect_workspace
+    report = inspect_workspace(ROOT, data_path=args.data)
+    if args.check or not report["ready"]:
+        print(format_report(report), file=sys.stdout if report["ready"] else sys.stderr)
+        if not report["ready"]:
+            raise SystemExit(2)
+        return
+    if any(c["status"] != "ok" for c in report["checks"]):
+        print(format_report(report), file=sys.stderr)
     server = ThreadingHTTPServer((args.host, args.port), make_handler(args.data))
     print(f"Uteki Data Agent Result: http://{args.host}:{args.port}/result")
     print(f"Uteki Document Navigator: http://{args.host}:{args.port}/document-index")

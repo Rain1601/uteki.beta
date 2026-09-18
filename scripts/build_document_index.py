@@ -21,8 +21,9 @@ def main() -> None:
         type=Path,
         default=ROOT / "data/source_documents/alphabet_2025_10k/indexes/v0.1-candidate",
     )
+    parser.add_argument("--parser-version", help="explicit parser identity; omit to retain the legacy default")
     args = parser.parse_args()
-    manifest = build_index_artifacts(args.snapshot, args.output)
+    manifest = build_index_artifacts(args.snapshot, args.output, parser_version=args.parser_version)
     counts = manifest["counts"]
     print(
         f"Built {manifest['index_id']}: {counts['parts']} Parts, {counts['items']} Items, "

@@ -6,6 +6,26 @@ Uteki starts from a research question and evidence, then builds the data and
 automation needed to answer it. The first milestone is deliberately small:
 make one capability measurable before making the agent larger.
 
+Product planning: [long-term roadmap](docs/ROADMAP.zh-CN.md),
+[agent responsibilities and investment workflow](docs/AGENT_SYSTEM_DESIGN.zh-CN.md),
+[active v0.2 plan](docs/releases/V0_2_PLAN.zh-CN.md), and
+[release acceptance record](docs/releases/ACCEPTANCE_TEMPLATE.zh-CN.md).
+These plans preserve the active M0 scope and do not imply milestone acceptance.
+
+The first v0.2 development batch now includes a newly acquired complete SEC
+filing, a verified candidate index, and a portable G0 review package. See the
+[R2-A execution record](docs/releases/V0_2_R2A_EXECUTION.zh-CN.md) and
+[human review packet](data/evaluation/m0_r2a/2026-09-18-candidate/REVIEW.zh-CN.md).
+Validate that package without network or model calls:
+
+```bash
+.venv/bin/python scripts/prepare_m0_review.py --verify data/evaluation/m0_r2a/2026-09-18-candidate
+```
+
+This package carries its own original source and legacy inputs. It is a new
+candidate pending human review; it does not restore the old populated workbench
+or complete the M0 evaluation gates.
+
 ## Research workbench
 
 The local workbench now opens on an attention dashboard: pending reports,
@@ -22,12 +42,27 @@ and agent edits retain separate revisions and do not overwrite or automatically
 adopt the original report.
 
 ```bash
-uv sync
-PYTHONPATH=src:. uv run python -m apps.review_workbench.app --host 127.0.0.1 --port 8765
+uv sync --locked --extra analysis
+.venv/bin/python scripts/run_offline_checks.py
+.venv/bin/python scripts/smoke_research_workflow.py
+.venv/bin/python scripts/check_workspace.py
 ```
 
-Open `http://127.0.0.1:8765/`. Run offline checks with
-`PYTHONPATH=src:. uv run python -m unittest discover -s tests -q`.
+Start with [local setup and data recovery](docs/LOCAL_DEVELOPMENT.md) and
+[the offline test boundary](docs/OFFLINE_TESTS.md). Python 3.11+, Node.js 20+
+and macOS/Linux are required for these checks. The analysis extra is needed
+for the offline SDK/fake-model tests; no model calls or credentials are used.
+The workspace check exits with code 2 when required data is missing. After
+restoring the inputs, launch the workbench:
+
+```bash
+PYTHONPATH=src:. .venv/bin/python -m apps.review_workbench.app --host 127.0.0.1 --port 8765
+```
+
+Open `http://127.0.0.1:8765/`. Startup now checks required inputs before
+creating review state or starting the server. Use `--check` for a read-only
+preflight. Full local regression remains available with
+`.venv/bin/python scripts/run_offline_checks.py --integration`.
 This code update does not publish the local source library or recorded
 experiments. The full offline regression suite and populated workbench require
 those local datasets; a fresh clone is not a preloaded research workspace.
@@ -70,11 +105,10 @@ The modular-monolith boundaries and dependency rules are defined in
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
 [`docs/ARCHITECTURE.zh-CN.md`](docs/ARCHITECTURE.zh-CN.md).
 
-The approved M1 scope and the Data Agent / Analysis Agent handoff are defined
-in [`docs/M1_10K_THESIS_SCOPE.zh-CN.md`](docs/M1_10K_THESIS_SCOPE.zh-CN.md) and
-[`docs/DATA_ANALYSIS_AGENT_CONTRACT.zh-CN.md`](docs/DATA_ANALYSIS_AGENT_CONTRACT.zh-CN.md),
-with matching English companions. M1 remains a later milestone; these
-contracts do not expand the active M0 scope.
+Earlier development referenced approved M1 and Data Agent / Analysis Agent
+handoff documents, but those files and their English companions are not included
+in this checkout. See the [missing-document inventory](docs/LOCAL_DEVELOPMENT.md)
+before relying on them for implementation. M1 remains a later milestone.
 
 The included metric-extraction fixture predates the current M0 definition. It
 is only a technical evaluator check and is not the active benchmark or a claim
@@ -90,13 +124,14 @@ SEC HTML → Source Blocks → Document → Part → Item
 
 It deliberately uses no LLM and does not infer hierarchy inside an Item.
 Tables, source anchors, page markers, style signatures, and the filing's two
-images remain inspectable. The approved immutable index lives under
+images remain inspectable in the populated local workspace. Its immutable index lives under
 `data/source_documents/alphabet_2025_10k/indexes/v0.1/`; its reviewed
-`v0.1-candidate` predecessor remains available for provenance.
+`v0.1-candidate` predecessor supplies provenance. These local index artifacts
+are not included in a fresh clone.
 
 ### Data Agent handoff candidate
 
-The current local-file `EvidenceBundle` lives under
+The separately provisioned local-file `EvidenceBundle` lives under
 `data/research_data/alphabet_2025_10k/v0.2-candidate/`. It publishes the
 current Business Map, Claims, normalized FY2025 Metrics, exact Evidence Links,
 and known Unknowns through `LocalResearchDataPort`. The earlier
@@ -106,20 +141,17 @@ Agent judgment.
 
 ## Run it
 
-Google Cloud's source-only rule spike is documented in
-[中文 scope](docs/GOOGLE_CLOUD_SPIKE.zh-CN.md) and
-[English scope](docs/GOOGLE_CLOUD_SPIKE.md). Run
+The following research commands require their original local datasets and
+review records. They are not bootstrap commands for a fresh clone.
+Google Cloud's source-only rule spike has an implementation entry point at
 `PYTHONPATH=src .venv/bin/python scripts/run_cloud_spike.py`, then open
 `http://127.0.0.1:8765/result?view=cloud-spike`.
 
 The same inspector now supports the source-only LLM comparison and pinned run selection.
-The minimal Analysis Agent has a separate `/analysis` view: see
-[Analysis A0 (中文)](docs/CLOUD_ANALYSIS_A0.zh-CN.md) /
-[Analysis A0 (English)](docs/CLOUD_ANALYSIS_A0.md).
-For the separate controlled-gap source-recovery experiment, see
-[A1 (中文)](docs/CLOUD_ANALYSIS_A1.zh-CN.md) / [A1 (English)](docs/CLOUD_ANALYSIS_A1.md).
-See [LLM Spike (中文)](docs/GOOGLE_CLOUD_LLM_SPIKE.zh-CN.md) /
-[LLM Spike (English)](docs/GOOGLE_CLOUD_LLM_SPIKE.md). Candidate-reference matching
+The minimal Analysis Agent has a separate `/analysis` view. The Cloud rule/LLM
+spike and Analysis A0/A1 scope documents are missing from this checkout;
+[local development notes](docs/LOCAL_DEVELOPMENT.md) record the missing files.
+Candidate-reference matching
 does not constitute human approval or a generalization claim.
 Evaluate a completed run separately with
 `PYTHONPATH=src .venv/bin/python scripts/evaluate_cloud_spike.py <run-directory>`.
@@ -169,7 +201,9 @@ tests/            Contract and metric tests
 
 ## Next gate
 
-Enter implementation planning and complete G0: source representation, evidence
-locator, inclusion and exclusion rules, minimum schema, ambiguity policy, and
-review rubric. Test the contract manually on a small filing section before
-implementation.
+Complete the prepared G0 pilot with actual human research decisions, then
+freeze the source policy, inclusion/exclusion rules, ambiguity policy and
+review rubric. Public-contract and source-preparation development is in
+progress; human Gold, paid baseline execution and release acceptance remain
+pending. The [baseline design](docs/releases/V0_2_BASELINE_DESIGN.zh-CN.md)
+records current exposure, input-scope differences and the unset model budget.

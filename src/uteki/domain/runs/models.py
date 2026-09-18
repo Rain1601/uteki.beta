@@ -26,4 +26,8 @@ class AgentRunRecord:
     output_tokens: int | None = None
     cost_usd: float | None = None
     warnings: tuple[str, ...] = field(default_factory=tuple)
-
+    input_hash: str | None = None
+    input_manifest: dict[str, Any] = field(default_factory=dict)
+    error_stage: str | None = None
+    error_type: str | None = None
+    error_message: str | None = None

@@ -1,5 +1,7 @@
-from .contract import AgentConfig, BusinessMapAgentResult, BusinessMapRequest
+from .contract import AgentConfig, BusinessMapAgentResult, BusinessMapRequest, BusinessMapRunError
 from .pipeline import BusinessMapAgent
 
-__all__ = ["AgentConfig", "BusinessMapAgent", "BusinessMapAgentResult", "BusinessMapRequest"]
-
+__all__ = [
+    "AgentConfig", "BusinessMapAgent", "BusinessMapAgentResult", "BusinessMapRequest",
+    "BusinessMapRunError",
+]
