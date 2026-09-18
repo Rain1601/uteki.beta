@@ -12,6 +12,15 @@ Product planning: [long-term roadmap](docs/ROADMAP.zh-CN.md),
 [release acceptance record](docs/releases/ACCEPTANCE_TEMPLATE.zh-CN.md).
 These plans preserve the active M0 scope and do not imply milestone acceptance.
 
+Investment governance: [investment and evaluation charter](docs/INVESTMENT_EVALUATION_CHARTER.zh-CN.md)
+and [quarterly review template](docs/INVESTMENT_REVIEW_TEMPLATE.zh-CN.md).
+Review quarterly, attribute annually, and assess the strategy over rolling 3–5
+year windows. Research quality, position decisions, and returns are separate.
+System-origin, manual, and unclassified positions require quantity-level attribution
+and distinct reporting; manual tagging does not prove system performance.
+Account parameters and benchmarks remain to be frozen. These documents do not
+enable trading, implement position tagging, or expand M0.
+
 The first v0.2 development batch now includes a newly acquired complete SEC
 filing, a verified candidate index, and a portable G0 review package. See the
 [R2-A execution record](docs/releases/V0_2_R2A_EXECUTION.zh-CN.md) and

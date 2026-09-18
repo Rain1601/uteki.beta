@@ -32,3 +32,16 @@ Every experiment begins by copying `experiments/TEMPLATE.md` into a new,
 date-prefixed directory. Record the hypothesis before the change. Store the
 exact command, code revision, benchmark version, aggregate metrics, individual
 errors, cost/latency, conclusion, and next hypothesis.
+
+## Relationship to investment performance
+
+This protocol evaluates research outputs; its benchmark is a human-reviewed
+reference dataset, not a market index. Investment evaluation follows the
+[investment charter](INVESTMENT_EVALUATION_CHARTER.zh-CN.md) and
+[quarterly review template](INVESTMENT_REVIEW_TEMPLATE.zh-CN.md): quarterly reviews,
+annual attribution, and rolling 3–5 year observations, with research, position
+decisions, and returns reported separately. System-origin positions, manual
+decisions, and human interventions require explicit attribution; execution by a
+human alone does not make a system decision manual. Performance measurement,
+position tagging, and account configuration remain future capabilities and do
+not change M0 gates.
