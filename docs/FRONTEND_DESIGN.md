@@ -1,3 +1,48 @@
+# Company notebook · 2026-09-18
+
+User selected the company notebook demo. This direction supersedes the earlier
+blue-gray palette. Applied the official Anthropic frontend-design skill installed
+at ~/.codex/skills/frontend-design/SKILL.md; original license retained.
+
+Plan: paper #FCFBF9, reading surface #FFFFFF, ink #30312F, muted #71716B,
+divider #E6E3DE, accent #8A7053. Georgia for the wordmark and company identity;
+Avenir Next / PingFang SC for bilingual reading and controls. Dark ink actions,
+bronze links and selection markers; semantic warnings remain distinct.
+
+Layout: left aligned research with a white reading surface and quiet paper margins.
+
+```
+Global navigation / company identity
+Research sections
+Researcher index | continuous report | materials and version history
+```
+
+Brief review: preserve the selected notebook's calm reading hierarchy without
+copying demo-only chapters, fake team events or decorative numbering. Home remains
+an attention queue; structured data remains a table. Companies retain their current
+list layout. Reading, review and adoption remain separate, and source documents
+remain unthemed. Existing responsive layouts and reduced-motion support are retained.
+Shared tokens replace old blue selections, with scoped workspace rules for embedded
+page styles. No data, model output, routes or review logic changed.
+
+Verification: 241 Python checks and 7 JavaScript checks passed. Browser inspection
+used the production renderers with isolated, explicitly labeled fixture data:
+desktop company overview, report directory and report reader; 390px report,
+structured table, materials and attention dashboard. Report and data pages had
+390px document width with no page-level overflow. Financial tables scroll within
+their container. Verified bilingual switching and the daily-viewed checkbox;
+the pending-review label remains after marking viewed. Fixed nested support labels
+that previously displayed both languages. Reset viewport after inspection.
+
+Limitations: the original complete data/ and experiments/ inputs remain unavailable.
+The temporary preview does not implement research mutation or annotation APIs
+(the reader correctly reports unavailable annotations); evidence integrity and
+review behavior were covered by existing offline tests, not full live-data browser
+acceptance. Source documents and legacy experiment pages were not visually checked
+in this pass. No model calls or deployment.
+
+---
+
 # Research archive visual direction
 
 ## Independent annual narrative · 2026-09-15

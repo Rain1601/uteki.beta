@@ -79,7 +79,7 @@ def render_company_overview(company, rows, catalog, bundle=None):
     docs=catalog.get('documents',[]) if company['id']=='alphabet' else []
     groups=report_groups(rows)
     base='/companies/'+quote(company['id'],safe='')
-    body=crumb(company)+company_tabs(company['id'])+'<div class="workspace-heading"><h1>'+e(company['name'])+'</h1><p>'+e(company['ticker'])+' · '+bi('公司研究工作区','Company research workspace')+'</p></div>'
+    body=crumb(company)+company_tabs(company['id'])+'<div class="workspace-heading"><h1 class="company-title">'+e(company['name'])+'</h1><p>'+e(company['ticker'])+' · '+bi('公司研究工作区','Company research workspace')+'</p></div>'
     body+='<div class="company-research-layout"><section class="company-report-main"><div class="section-heading"><h2>'+bi('分析报告','Analysis reports')+'</h2><a href="'+base+'/reports">'+bi('全部报告','All reports')+'</a></div>'
     if groups:
         featured=groups[0][0]

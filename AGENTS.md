@@ -3,7 +3,9 @@
 ## Frontend design
 
 For frontend styling, layout, new pages, and interaction design, read and apply
-`/Users/rain/.codex/skills/frontend-design/SKILL.md` before making changes.
+`~/.codex/skills/frontend-design/SKILL.md` before making changes (expand `~` to
+the current user's home directory). Official source:
+https://github.com/anthropics/skills/tree/main/skills/frontend-design.
 This is a user-supplied skill; if unavailable, ask for its location rather than
 pretending it was applied. Preserve the approved product behavior and real data.
 
