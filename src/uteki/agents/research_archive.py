@@ -4,6 +4,7 @@ The state and audit trail are committed as one JSON document. Model artifacts ar
 never rewritten; editable text is always a new candidate snapshot.
 """
 from __future__ import annotations
+from .review_blocks import review_blocks, valid_decisions
 
 from contextlib import contextmanager
 from copy import deepcopy
@@ -351,7 +352,49 @@ class Store:
                     target["updated_at"] = timestamp
                     changed.append(target["id"])
 
-            if action == "adopt":
+            structural_action = action if action in {'insert_block','delete_block'} else None
+            if structural_action:
+                answer=deepcopy(row.get('answer'))
+                if not isinstance(answer,dict): raise ArchiveError('Unsupported report format')
+                index=kwargs.get('block_index')
+                if type(index) is not int: raise ArchiveError('Invalid block position')
+                markdown='report_markdown' in answer
+                items=answer['report_markdown'].splitlines() if markdown else answer.get('claims',[])
+                if not 0 <= index <= len(items): raise ArchiveError('Invalid block position')
+                if structural_action=='insert_block':
+                    kind=kwargs.get('block_kind');text=kwargs.get('text')
+                    labels={'fact':'事实','inference':'推断','hypothesis':'假设','question':'待验证问题'}
+                    if kind not in labels or not isinstance(text,str) or not text.strip() or len(text)>20000:
+                        raise ArchiveError('Choose a block type and enter text')
+                    if markdown:
+                        items[index:index]=['',labels[kind]+'：'+text.strip().replace('\n',' '),'']
+                    else: items.insert(index,{'kind':kind,'text':text.strip(),'citations':[]})
+                else:
+                    count=kwargs.get('block_count',1)
+                    if type(count) is not int or count<1 or index+count>len(items) or (not markdown and count!=1):
+                        raise ArchiveError('Invalid deletion range')
+                    del items[index:index+count]
+                if markdown:answer['report_markdown']='\n'.join(items)
+                else:answer['claims']=items
+                if len(str(answer))>90000:raise ArchiveError('Report too large')
+                kwargs['answer']=answer
+                kwargs['human_notes']=kwargs.get('human_notes') or ('新增内容块' if structural_action=='insert_block' else '删除内容块')
+                action='edit'
+
+            if action in {'accept_block', 'unaccept_block'}:
+                if row.get('status') == 'deleted':
+                    raise ArchiveError('Restore the report before reviewing blocks')
+                blocks=review_blocks(row.get('answer'))
+                key=kwargs.get('block_id')
+                if key not in blocks or kwargs.get('block_hash') != blocks[key]:
+                    raise ConflictError('Block changed; reload before reviewing')
+                decisions=valid_decisions(row)
+                decision={'hash':blocks[key], 'accepted':action=='accept_block', 'at':timestamp,
+                          'actor':kwargs.get('actor','user'), 'source_snapshot_id':snapshot_id}
+                decisions[key]=decision
+                row['block_decisions']=decisions
+                row.setdefault('block_review_events',[]).append(dict(decision,block_id=key))
+            elif action == "adopt":
                 if row.get('researcher_id', 'unassigned') == 'unassigned':
                     raise ArchiveError('Assign a verified researcher before adoption')
                 if kwargs.get('expected_slot_revision') is not None and kwargs['expected_slot_revision'] != _slot_revision(state, row):
@@ -431,7 +474,7 @@ class Store:
                         updates[name] = deepcopy(kwargs[name])
                 if not updates or set(updates) - {"answer", "result", "title", "summary", "human_notes"}:
                     raise ArchiveError("Provide editable answer fields only")
-                if not agent_edit and 'answer' in updates and isinstance(row.get('answer'), dict):
+                if not agent_edit and not structural_action and 'answer' in updates and isinstance(row.get('answer'), dict):
                     old, new = row['answer'], updates['answer']
                     if not isinstance(new, dict) or set(new) != set(old):
                         raise ArchiveError('Preserve the answer schema and evidence')
@@ -461,6 +504,19 @@ class Store:
                                   edit_kind='agent_revision' if agent_edit else 'human_revision',
                                   edit_reason=kwargs.get('reason') or updates.get('human_notes', ''),
                                   available_at=timestamp)
+                result_row['block_decisions'] = valid_decisions(result_row)
+                if structural_action:
+                    old_blocks=review_blocks(row.get('answer'));new_blocks=review_blocks(result_row.get('answer'))
+                    carried={}
+                    for old_key,decision in valid_decisions(row).items():
+                        digest=old_blocks[old_key]
+                        matches=[key for key,value in new_blocks.items() if value==digest]
+                        if len(matches)==1 and list(old_blocks.values()).count(digest)==1:
+                            carried[matches[0]]=deepcopy(decision)
+                    result_row['block_decisions']=carried
+                    result_row['structure_change']={'action':structural_action,'index':kwargs['block_index'],
+                                                   'count':kwargs.get('block_count',1),'kind':kwargs.get('block_kind')}
+
                 result_row.pop('agent_provenance', None)
                 if agent_edit:
                     result_row['agent_provenance'] = deepcopy(kwargs['agent_provenance'])
@@ -499,6 +555,18 @@ class Store:
                     if kind not in {"preference", "fact_claim", "hypothesis", "unclassified"}:
                         raise ArchiveError("Unknown opinion kind")
                     comment.update(text=text, kind=kind, carry_forward=bool(kwargs.get("carry_forward", comment.get("carry_forward", False))))
+                if action == 'add_comment' and kwargs.get('feedback_vote') is not None:
+                    vote=kwargs['feedback_vote'];key=kwargs.get('block_id')
+                    blocks=review_blocks(row.get('answer'))
+                    if vote not in {'up','down'}:
+                        raise ArchiveError('Unknown feedback vote')
+                    if key not in blocks or kwargs.get('block_hash') != blocks[key]:
+                        raise ConflictError('Feedback block changed; reload')
+                    if len(text)>12000:
+                        raise ArchiveError('Feedback too long')
+                    comment.update(feedback_vote=vote,block_id=key,block_hash=blocks[key],
+                                   source_answer=deepcopy(row.get('answer')),researcher_id=row.get('researcher_id'),
+                                   policy_status='feedback_not_adopted_rule')
                 comment.update(available_at=timestamp, author=kwargs.get("actor", "user"), review_status="pending")
                 versions.append(comment)
                 state["comments"][comment["comment_id"]] = versions
@@ -516,6 +584,7 @@ class Store:
                      "before_status": before["status"], "after_status": row["status"],
                      "before_revision": before["revision"], "after_revision": row["revision"],
                      "changed_snapshot_ids": changed,
+                     "block_id": kwargs.get("block_id"), "block_hash": kwargs.get("block_hash"),
                      "changes": [{"snapshot_id": key, "before": previous_states.get(key),
                                   "after": {"status": state["snapshots"][key]["status"],
                                             "revision": state["snapshots"][key]["revision"]}} for key in changed]}

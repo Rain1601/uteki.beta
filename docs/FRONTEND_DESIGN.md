@@ -413,3 +413,62 @@ Palette: paper #ffffff, rail #f5f7fa, ink #202b3b, muted #596779, action #275dad
 Plan review: no invented market alerts, newcomer counts or real-time dates. Existing priorities seed focus; report timestamps/audit events supply research updates. Missing company-added dates are explicitly unavailable. Local daily checkmarks are labeled as this-browser view state, not archived research approval. Company page gives most space to reports and places sources in a supporting rail.
 
 Dashboard v1 verification: 274 tests pass, including grounded additions, timezone boundaries, exclusion of future updates, priority ordering, version grouping, and local-view checkpoint invalidation. Seven canonical pages and fifteen inline scripts pass response/syntax checks. Browser visual verification remains unavailable: CUA getTab reports the administrator policy cannot be verified. User's affirmative response and revised brief authorize applying this code-only version to the original project; report import remains excluded.
+
+
+## 2026-09-19 Direct report review workspace
+
+User requested fixed company tabs, left report navigation, direct middle report editing and right source snapshot. Plan: white #ffffff paper, #f1f4f8 rail, #202b3b ink, #566477 secondary text, #275dad selected state; reuse Avenir Next/PingFang SC. Layout: report list 250px | flexible reading/editing | source metadata 280px. All text left aligned. Retain document/researcher scope and revision provenance.
+
+Brief review: remove overview feature cards and separate company report directory; render the existing archive immediately. Move material/report choices to the left, put source identity on the right. Editing is inline and saves through the original revision API. Catalog hashes are explicitly labeled catalog metadata, not falsely described as frozen run inputs. Companies list unchanged. Mobile order is list, report, source. Browser verification and regression results recorded in delivery.
+
+Verification: 54 archive/UI/route tests and 5 report-revision tests passed; extracted JavaScript passed node syntax checking, empty report rendering passed, and git diff whitespace check passed. Restarted local server. Browser getTab was blocked because the admin-enforced security policy could not be verified; no visual/interactive browser pass is claimed. Existing paragraph-90 excerpt integrity gap remains unrelated to this layout change.
+
+
+## 2026-09-19 Sidebar simplification
+
+User explicitly prefers Claude/Anthropic styling. Reference: https://www.anthropic.com/ (text reference accessed; no claim of screenshot matching). Plan: warm paper #f5f4ef, reading #faf9f6, rail #eeede7, ink #30302b, muted #77766d, terracotta #a65d43. Use Avenir/PingFang for controls and Georgia/Songti for report headings. This intentionally follows the requested visual direction. Left rail contains only a researcher selector and one title per research material; scope, status filters and all historical versions remain accessible in collapsed right-side settings. Review against brief: hierarchy reduction is the main change, with quiet typography supporting reading. No company list or research data changes.
+
+
+## Stable inline editing and fixed operations
+
+User rejects layout replacement and scrolling to find actions. Reuse warm palette and existing typography. Keep the rendered document in place; editable text nodes preserve heading, paragraph, table and citation structure. Map Markdown blocks/cells back to source lines, leaving unchanged lines byte-for-byte intact. Plain-text paste and single-line block editing avoid browser-created structure changes. Save/cancel/revision note share a sticky toolbar; secondary actions remain in More. Existing revision API retains provenance and conflict guards. This pass edits text within existing blocks, not document structure. No visual verification is claimed while browser policy verification remains unavailable.
+
+Validation: 54 archive/UI/route regressions and 5 revision tests passed. Heading/list/table source mapping and bold rendering checked; JavaScript syntax check passed. Browser interaction remains unverified under the existing policy restriction.
+
+## Paragraph highlights and revision locations
+
+User requested soft whole-block hover/focus instead of a left rule. Apply #eeeae2 without padding or font changes so editing does not shift layout. Revision history now projects persisted before/after values into individual changes, labeled by claim paragraph or Markdown source line, and displays save time. Preserve human/agent attribution and revision lineage; record on confirmed save, not each keystroke. Existing 54 archive tests and 5 revision tests passed; checked paragraph location, unchanged-block omission, additions and HTML escaping. Browser visual verification remains unavailable.
+
+
+## Block review lifecycle
+
+Hover highlights a text block; double-click (keyboard Enter) edits that block directly. A nearby acceptance control persists the block hash, actor and timestamp under the snapshot transaction/revision guard. Toolbar shows content acceptance count. Content approval is distinct from validated report-baseline adoption. Human/agent revision inheritance retains only unchanged block hashes; claims include citations in the hash. Markdown table cells are review units; headings and text lines correspond to rendered blocks. No automatic approval or model call. Browser visual verification remains blocked by the existing policy check.
+
+Validation: 54 archive/UI/route tests plus 9 block-review/revision tests passed. New cases cover persisted acceptance, undo, stale revision rejection, changed-block invalidation with unchanged approvals retained, citation-sensitive hashes and table cell mapping. Extracted JavaScript syntax and whitespace checks passed. Whole-report baseline adoption moved into More so the primary workflow is block review.
+
+
+## Lower-right acceptance and review sidebar tabs
+
+User requests an unobtrusive lower-right acceptance control with a brief dismissal delay. Anchor below each claim (including citations) or rendered report text block; reserve whitespace, retain for 800ms after pointer exit, cancel dismissal while hovered/focused, hide on scroll. Do not move upward over text when viewport space is insufficient. Right rail now has accessible Sources, Revisions and Cross-review tabs. Cross-review is a clearly marked future execution entry: no fabricated results or model invocation. Proposed unit is a frozen whole report with paragraph-level findings and model/evidence provenance. Existing visual verification restriction remains.
+
+
+## Text-local feedback
+
+Anchor the compact acceptance/like/dislike control near the pointer over the actual text, not the containing claim/citations card. Dislike opens an inline reason form and freezes the target while entering text. Persist feedback through the existing opinion pipeline with source answer, block hash, researcher, vote and timestamp; mark carry_forward for the existing reanalysis context. Preferences are pending feedback, not automatically adopted general rules. User's negative assessment of Team's first paragraph is recorded in the task feedback below without guessing which historical version or detailed reason was intended. No new model run.
+
+
+## Stable paragraph footer, replacing pointer-following controls
+
+User screenshot shows cursor-adjacent controls obscuring prose. Remove pointer coordinates, fixed positioning and mousemove listeners. Reserve a 36px footer immediately after each text block, before claim citations; align controls right. Table cells share a footer after the table to preserve valid markup. Hover changes opacity over 140ms with no translation; dismiss after 600ms, retain during focus/feedback. Feedback form expands in document flow, never overlays prose. Editing hides controls but retains the footer space. Reduced-motion disables fades. Visual verification remains unavailable; screenshot diagnosis is user-provided.
+
+
+## Insert and delete content blocks
+
+User requests hover plus between paragraphs, typed insertion and persistent top-right deletion; dragging deferred. Insert facts, inferences, hypotheses or questions in-place as an unsaved draft. Save/cancel uses the fixed toolbar. Server derives structural changes from the persisted answer and validated indices; existing citations are preserved, inserted claims have no fabricated citations. Deletion removes a block from the new revision only. Unchanged unique content hashes carry acceptance across shifted positions. Table deletion is whole-table. New content remains unverified; no automatic fact approval. Visual verification remains unavailable.
+
+Validation: 54 archive/UI/route checks and 14 structure/feedback/acceptance/revision checks passed. New cases cover insertion without citation mutation, acceptance migration across shifted indices, original-version retention after deletion, invalid positions/types/empty content, stale versions and Markdown table removal. JavaScript syntax and whitespace checks passed. Structural editing handles one insertion or deletion per confirmed save; cancel restores the draft.
+
+
+## Selection endpoint polish
+
+Shortened block acceptance label to 采纳 / Accept. Annotation feedback toolbar anchors above the selection focus endpoint, with backward/multiline fallback and viewport clamping; no change to annotation content. Deferred editorial bold/keyword emphasis to future report authoring as requested. JavaScript syntax and 26 annotation tests passed; browser visual verification remains unavailable.

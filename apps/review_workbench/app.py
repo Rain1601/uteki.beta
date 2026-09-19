@@ -511,7 +511,7 @@ def make_handler(data_path: Path, archive_path: Path | None = None):
             rows = archive.list(company=company['id'])
             bundle = load_json(EVIDENCE_BUNDLE_DATA) if company['id'] == 'alphabet' else None
             if not section:
-                send(render_company_overview(company, rows, catalog, bundle))
+                send(render_archive(company, rows, documents={d['id']: d for d in catalog.get('documents', [])}, active_section='overview'))
             elif section == 'materials' or section.startswith('materials/pdf/'):
                 library = ROOT / 'data/reading_library' / company['id']
                 manifest = library / 'download_manifest.json'
@@ -535,8 +535,6 @@ def make_handler(data_path: Path, archive_path: Path | None = None):
                 context = '<div class="company-context">' + crumb(company, ('业务图', 'Business map')) + company_tabs(company['id'], 'data') + '</div>'
                 page = page.replace('</nav>', '</nav>' + context, 1)
                 send(page)
-            elif section == 'reports' and not query:
-                send(render_reports(rows, company))
             elif section == 'reports' or section.startswith('reports/'):
                 identity = unquote(section.removeprefix('reports/')) if section != 'reports' else query.get('snapshot', [None])[0]
                 if identity and not any(r['id'] == identity for r in rows):

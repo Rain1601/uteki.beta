@@ -1,15 +1,26 @@
 import sys
 import unittest
+import tempfile
+import shutil
+from unittest.mock import patch
 from pathlib import Path
 from lxml import html
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts'))
 from render_hypothesis_mvp import validate, render
+import render_hypothesis_mvp
 
 
 class AnnualReportViewTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        directory = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(directory.cleanup)
+        output = Path(directory.name) / 'annual-report'
+        shutil.copytree(render_hypothesis_mvp.OUT, output)
+        override = patch.object(render_hypothesis_mvp, 'OUT', output)
+        override.start()
+        cls.addClassCleanup(override.stop)
         cls.stages, cls.metrics, cls.validation = validate()
 
     def test_initial_view_contains_only_annual_sources_and_no_quarter_results(self):

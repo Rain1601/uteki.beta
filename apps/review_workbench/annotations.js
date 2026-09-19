@@ -24,10 +24,11 @@
  const message = text => { status.textContent = text; status.hidden = false; };
  function place(rect) {
   toolbar.hidden = false;
-  toolbar.style.left = Math.max(12, Math.min(rect.left, innerWidth - toolbar.offsetWidth - 12)) + 'px';
-  toolbar.style.top = Math.max(12, rect.top > 55 ? rect.top - toolbar.offsetHeight - 8 : rect.bottom + 8) + 'px';
+  toolbar.style.left = Math.max(12, Math.min(rect.right - toolbar.offsetWidth / 2, innerWidth - toolbar.offsetWidth - 12)) + 'px';
+  toolbar.style.top = Math.max(12, rect.top >= toolbar.offsetHeight + 20 ? rect.top - toolbar.offsetHeight - 8 : Math.min(rect.bottom + 8, innerHeight - toolbar.offsetHeight - 12)) + 'px';
  }
  function paint() {
+  if (document.body.classList.contains('editing-report')) return;
   for (const node of nodes) {
    const number = Number(node.dataset.annotatable), text = originals.get(number), points = Array.from(text);
    const marks = records.marks.filter(m => m.claim_number === number && m.text_hash === node.dataset.textHash)
@@ -54,6 +55,7 @@
   records = await response.json(); ready = true; paint();
  }
  function selectionChanged() {
+  if (document.body.classList.contains('editing-report')) {hide();return;}
   if (saving || editor.open || toolbar.contains(document.activeElement)) return;
   const selection = getSelection();
   if (pending?.action === 'remove' && (!selection || selection.isCollapsed)) return;
@@ -68,12 +70,23 @@
   if (!quote.trim()) {hide();return;}
   pending = {action:'add', claim_number:Number(startNode.dataset.annotatable), start,
    end:start+Array.from(quote).length, quote, text_hash:startNode.dataset.textHash};
-  button.textContent=tr('写修改意见','Add feedback'); place(range.getBoundingClientRect());
+  // Position at the drag endpoint, including backward and multi-line selections.
+  const endpoint = document.createRange();
+  endpoint.setStart(selection.focusNode, selection.focusOffset); endpoint.collapse(true);
+  let endpointRect = endpoint.getClientRects()[0];
+  if (!endpointRect || !endpointRect.height) {
+   const rects = [...range.getClientRects()];
+   const backward = selection.focusNode === range.startContainer && selection.focusOffset === range.startOffset;
+   const edge = backward ? rects[0] : rects[rects.length - 1];
+   if (edge) endpointRect = {left: backward ? edge.left : edge.right, right: backward ? edge.left : edge.right, top:edge.top, bottom:edge.bottom};
+  }
+  button.textContent=tr('写修改意见','Add feedback'); place(endpointRect || range.getBoundingClientRect());
  }
  document.addEventListener('selectionchange', () => {clearTimeout(timer);timer=setTimeout(selectionChanged,60);});
  toolbar.addEventListener('pointerdown', event => event.preventDefault());
  dismiss.onclick = hide;
  function openEditor(request,mark={}) {
+  if (document.body.classList.contains('editing-report')) return;
   editing={...request,expected_note_version:mark.note_version||0}; hide(); getSelection()?.removeAllRanges();
   editor.querySelector('#annotation-heading').textContent=tr('针对选文写修改意见','Feedback on selected text');
   editor.querySelector('#annotation-quote').textContent=mark.quote||request.quote;

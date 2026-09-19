@@ -25,9 +25,16 @@ class ResearchArchiveUITest(unittest.TestCase):
     def test_materials_have_an_independent_right_rail(self):
         from lxml import html
         dom = html.fromstring(render_archive({'id':'alphabet'}, [self.snapshot()]))
-        self.assertEqual(dom.xpath('//main/*/@class'), ['detail', 'material-rail'])
-        self.assertEqual(len(dom.xpath('//main/aside/a[contains(@class,"agent-entry")]')), 1)
-        self.assertEqual(len(dom.xpath('//main/div[@class="material-rail"]//a[@class="material-row"]')), 1)
+        self.assertEqual(dom.xpath('//main/*/@class'), ['report-list-rail', 'detail', 'material-rail'])
+        self.assertEqual(len(dom.xpath('//main/aside//select[@id="researcher-filter"]')), 1)
+        self.assertEqual(len(dom.xpath('//main/aside//a[contains(@class,"report-choice")]')), 1)
+        self.assertEqual(dom.xpath('//main/aside//a[contains(@class,"version-row")]'), [])
+        self.assertEqual(len(dom.xpath('//details[@class="archive-options"]//a[contains(@class,"version-row")]')), 1)
+        self.assertIn('原始材料快照', dom.xpath('//main/div[@class="material-rail"]')[0].text_content())
+        self.assertEqual(dom.xpath('//*[@id="edit-dialog"]'), [])
+        self.assertEqual(len(dom.xpath('//*[@data-editor-version="inline-v2"]')), 1)
+        self.assertEqual(dom.xpath('//*[@id="answer-editor"]'), [])
+        self.assertEqual(dom.xpath('//dialog[@id="edit-dialog"]'), [])
         self.assertEqual(dom.xpath('//main/div[@class="detail"]//details[@class="version-history"]'), [])
         self.assertNotIn('Pending candidates', html.tostring(dom).decode())
         self.assertEqual(dom.xpath('//main/div[@class="detail"]//div[@class="material-list"]'), [])
@@ -39,7 +46,9 @@ class ResearchArchiveUITest(unittest.TestCase):
 
     def test_adopted_can_derive_revision(self):
         page = render_archive({"id": "alphabet"}, [self.snapshot(status="adopted")])
-        self.assertIn('data-open="edit-dialog"', page)
+        self.assertNotIn('data-open="inline-report"', page)
+        self.assertIn('startBlockEdit', page)
+        self.assertIn('block-progress', page)
         self.assertIn('data-action="archive"', page)
         self.assertNotIn('data-action="delete"', page)
 

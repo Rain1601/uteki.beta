@@ -137,12 +137,13 @@ class ResearcherStreamsTests(unittest.TestCase):
         page=render_archive({'id':'alphabet'},self.store.list(),researcher_id='single-default')
         from lxml import html
         dom=html.fromstring(page)
-        self.assertEqual(len(dom.xpath('//aside/a[contains(@class,"agent-entry")]')),2)
+        self.assertEqual(len(dom.xpath('//aside//select[@id="researcher-filter"]/option')),2)
         self.assertEqual(len(dom.xpath('//div[@class="material-list"]//a[@class="material-row"]')),1)
         self.assertIn('snapshot=a',dom.xpath('//div[@class="material-list"]//a[@class="material-row"]/@href')[0])
         self.assertNotIn('snapshot=team',page)
-        self.assertNotIn('researcher-filter',page)
-        self.assertIn('Context policy for future analyses',page)
+        self.assertEqual(len(dom.xpath('//aside//a[contains(@class,"report-choice")]')),1)
+        self.assertIn('snapshot=a',dom.xpath('//aside//a[contains(@class,"report-choice")]/@href')[0])
+        self.assertIn('Versions & research settings',dom.text_content())
         foreign=render_archive({'id':'alphabet'},self.store.list(),'team',researcher_id='single-default')
         self.assertIn('does not belong',foreign)
 

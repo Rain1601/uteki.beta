@@ -148,7 +148,7 @@ def _claims(answer, documents=None):
 
 
 @workbench_page('research')
-def render_archive(company, snapshots, selected_id=None, documents=None, researcher_id=None, scope=None, material_id=None):
+def render_archive(company, snapshots, selected_id=None, documents=None, researcher_id=None, scope=None, material_id=None, active_section="reports"):
     """Render the archive without mutating or implicitly adopting a result."""
     company_id = company.get("id", "alphabet") if isinstance(company, dict) else str(company)
     company_name = company.get("name", company_id) if isinstance(company, dict) else str(company)
@@ -181,16 +181,16 @@ def render_archive(company, snapshots, selected_id=None, documents=None, researc
             buttons.append('<button data-action="review">' + bi("审核修订", "Review revision") + '</button>')
         if status in {"candidate", "draft", "archived"}:
             reason = bi("证据校验或研究者身份未通过，不能跳过。", "Evidence checks or researcher identity unresolved.")
-            buttons.append('<button class="primary" data-action="adopt"' + ('' if can_adopt else ' disabled') + '>' + bi("采纳", "Adopt") + '</button>')
+            buttons.append('<button class="primary" data-action="adopt"' + ('' if can_adopt else ' disabled') + '>' + bi("采纳整份报告", "Adopt report") + '</button>')
             if not can_adopt:
                 buttons.append('<span class="muted action-hint">' + reason + '</span>')
-            buttons.append('<button data-open="edit-dialog">' + bi("编辑报告", "Edit report") + '</button>')
+            buttons.append('<button data-open="inline-report">' + bi("编辑报告", "Edit report") + '</button>')
         if status in {"candidate", "draft", "adopted"}:
             buttons.append('<button data-action="archive">' + bi("归档", "Archive") + '</button>')
         if status in {"candidate", "draft", "archived"}:
             buttons.append('<button data-action="delete">' + bi("删除", "Delete") + '</button>')
         if status == 'adopted' or status == 'rejected':
-            buttons.append('<button data-open="edit-dialog">' + bi('编辑报告', 'Edit report') + '</button>')
+            buttons.append('<button data-open="inline-report">' + bi('编辑报告', 'Edit report') + '</button>')
         if status == 'candidate':
             buttons.append('<button data-action="reject">' + bi('拒绝', 'Reject') + '</button>')
         if status == 'rejected':
@@ -236,7 +236,8 @@ def render_archive(company, snapshots, selected_id=None, documents=None, researc
             withdrawn = bool(comment.get("withdrawn") or comment.get("status") == "withdrawn" or comment.get("withdrawn_at"))
             carrying = bool(comment.get("carry_forward")) and not withdrawn
             control = f'<button data-action="withdraw_opinion" data-opinion="{e(cid)}">' + bi("撤回意见", "Withdraw opinion") + '</button>' if not withdrawn and cid and status != "deleted" else ''
-            comments.append('<article class="opinion"><div class="row"><small>' + e(comment.get("kind", "")) + ' · ' + e(_time(comment.get("created_at"))) + ' · ' + bi("已撤回" if withdrawn else "请求带入后续" if carrying else "仅本次意见", "Withdrawn" if withdrawn else "Carry-forward requested" if carrying else "This review only") + '</small>' + control + '</div>' + ('<blockquote class="opinion-quote">' + e(comment['source_selection']['quote']) + '</blockquote>' if comment.get('source_selection') else '') + '<div class="prose">' + e(comment.get("text", "")) + '</div><small>' + bi("系统审查", "System review") + ': ' + e(comment.get("review_status") or "not_reviewed") + '</small>' + ('<p>' + e(comment.get("review_reason", "")) + '</p>' if comment.get("review_reason") else '') + '</article>')
+            feedback_label = ('<p class="muted">'+bi('点赞' if comment.get('feedback_vote')=='up' else '点踩','Like' if comment.get('feedback_vote')=='up' else 'Dislike')+' · '+e(comment.get('block_id'))+'</p>') if comment.get('feedback_vote') else ''
+            comments.append('<article class="opinion">'+feedback_label+'<div class="row"><small>' + e(comment.get("kind", "")) + ' · ' + e(_time(comment.get("created_at"))) + ' · ' + bi("已撤回" if withdrawn else "请求带入后续" if carrying else "仅本次意见", "Withdrawn" if withdrawn else "Carry-forward requested" if carrying else "This review only") + '</small>' + control + '</div>' + ('<blockquote class="opinion-quote">' + e(comment['source_selection']['quote']) + '</blockquote>' if comment.get('source_selection') else '') + '<div class="prose">' + e(comment.get("text", "")) + '</div><small>' + bi("系统审查", "System review") + ': ' + e(comment.get("review_status") or "not_reviewed") + '</small>' + ('<p>' + e(comment.get("review_reason", "")) + '</p>' if comment.get("review_reason") else '') + '</article>')
         comment_form = '' if status == "deleted" else '''<form id="opinion-form"><label for="opinion-text">''' + bi("写下你的意见", "Your review") + '''</label><textarea id="opinion-text" name="text" required rows="3" maxlength="12000"></textarea><div class="form-row"><label>''' + bi("意见类型", "Type") + ''' <select name="kind"><option value="preference">研究偏好 / Preference</option><option value="fact_claim">事实主张 / Factual claim</option><option value="hypothesis">投资假设 / Hypothesis</option></select></label><label><input type="checkbox" name="carry_forward"> ''' + bi("带入后续分析", "Carry into future analysis") + '''</label><button type="submit">''' + bi("保存意见", "Save review") + '''</button></div></form>'''
         opinions = '<section><h2>' + bi("人工意见与后续继承", "Human review & inheritance") + '</h2><p class="muted">' + bi("意见不是事实。类型由你指定，系统尚未复核时会明确标记；同版重跑可以使用未采纳报告上的意见；跨材料继承仍遵守采纳与时间规则，每次须重新审查。", "Opinions are not facts. Your selected type remains unreviewed until checked. Same-report reruns may use unadopted feedback; inheritance across materials requires adoption and time eligibility. Every run must review it.") + '</p>' + ''.join(comments) + comment_form + '</section>'
         links = []
@@ -246,9 +247,16 @@ def render_archive(company, snapshots, selected_id=None, documents=None, researc
                 links.append(f'<a href="{href}" target="_blank" rel="noopener">' + bi(zh, en) + ' ↗</a>')
         trace = '<details class="run-details"><summary>' + bi("运行与审核记录", "Run & audit details") + '</summary><div class="links">' + ''.join(links) + '</div><dl class="metadata"><div><dt>Run ID</dt><dd>' + e(s.get("run_id", "—")) + '</dd></div><div><dt>Snapshot ID</dt><dd>' + e(s["id"]) + '</dd></div><div><dt>' + bi("证据校验", "Evidence validation") + '</dt><dd>' + e(s.get("validation_status", "unknown")) + '</dd></div></dl>' + _list(s.get("validation_errors") or s.get("citation_errors")) + '</details>'
         buttons.append('<a class="history-jump" href="#revision-history">'+bi('修订历史', 'Revision history')+'</a>')
-        content = header + meta + notices + '<div class="actions">' + ''.join(buttons) + '</div>' + nav['versions'] + human_notes + '<section><h2>' + (bi('研究报告', 'Research report') if answer.get('report_markdown') else bi('当前判断', 'Current judgment')) + '</h2>' + _claims(answer, documents) + '</section><section><h2>' + bi("相对基线改变了什么", "What changed from the baseline") + '</h2>' + diff + '</section><section><h2>' + bi("未知项与材料限制", "Unknowns & limitations") + '</h2>' + _list(answer.get("limitations")) + '</section><section><h2>' + bi("核查发现与验证线索", "Findings & verification leads") + '</h2>' + _list(answer.get("findings")) + '</section>' + opinions + trace
+        buttons = [b for b in buttons if 'data-open=' not in b]
+        primary_buttons = [b for b in buttons if 'data-action="review"' in b]
+        other_buttons = [b for b in buttons if b not in primary_buttons]
+        toolbar = '<div class="report-toolbar" data-editor-version="inline-v2"><div class="read-actions">'+''.join(primary_buttons)+'<details class="more-actions"><summary>'+bi('更多','More')+'</summary><div>'+''.join(other_buttons)+'</div></details></div><div class="edit-actions" hidden><button id="save-inline" class="primary">'+bi('保存修订','Save revision')+'</button><button id="cancel-inline">'+bi('取消','Cancel')+'</button><input id="inline-reason" aria-label="Revision reason" placeholder="修改说明 / Revision note" maxlength="20000"><span id="edit-state" role="status"></span></div></div>'
+        content = toolbar + header + meta + notices + nav['versions'] + human_notes + '<section><h2>' + (bi('研究报告', 'Research report') if answer.get('report_markdown') else bi('当前判断', 'Current judgment')) + '</h2>' + _claims(answer, documents) + '</section><section><h2>' + bi("相对基线改变了什么", "What changed from the baseline") + '</h2>' + diff + '</section><section><h2>' + bi("未知项与材料限制", "Unknowns & limitations") + '</h2>' + _list(answer.get("limitations")) + '</section><section><h2>' + bi("核查发现与验证线索", "Findings & verification leads") + '</h2>' + _list(answer.get("findings")) + '</section>' + opinions + trace
         if answer.get('report_markdown'):
-            content = header + meta + notices + '<div class="actions">' + ''.join(buttons) + '</div>' + nav['versions'] + human_notes + _claims(answer, documents) + opinions + trace
+            content = toolbar + header + meta + notices + nav['versions'] + human_notes + _claims(answer, documents) + opinions + trace
+        from uteki.agents.review_blocks import review_blocks, valid_decisions
+        client['blocks'] = review_blocks(s.get('answer'))
+        client['block_decisions'] = valid_decisions(s)
         client["selected"] = {"id": s["id"], "revision": s.get("revision", 1), "primary_inferred": s.get("primary_inferred", False), "competitors": [r.get("label") or r["id"] for r in candidates], "human_notes": s.get("human_notes", "")}
         if question:
             content += '<details class="run-details"><summary>' + bi('完整研究问题与要求', 'Full research query') + '</summary><div class="prose">' + e(question) + '</div></details>'
@@ -257,9 +265,33 @@ def render_archive(company, snapshots, selected_id=None, documents=None, researc
                                   effective={'id': effective['id'], 'revision': effective['revision']} if effective else None)
     else:
         content = nav['versions'] + content
+    left_panel = '<h2>'+bi('分析报告','Reports')+'</h2>'+nav['researcher_control']+'<nav class="report-choices" aria-label="Reports">'+nav['report_links']+'</nav>'
+    advanced = '<details class="archive-options"><summary>'+bi('版本与研究设置','Versions & research settings')+'</summary>'+nav['controls']+'<label>'+bi('版本状态','Version status')+'<select id="version-status"><option value="all" data-zh="全部" data-en="All">全部</option><option value="candidate" data-zh="待审核" data-en="Pending">待审核</option><option value="adopted" data-zh="已采纳" data-en="Adopted">已采纳</option></select></label><label><input type="checkbox" id="show-deleted">'+bi('显示已删除历史','Show deleted history')+'</label>'+nav['timeline']+'</details>'
+    source = (documents or {}).get(selected.get('primary_document_id'), {}) if selected else {}
+    right_panel = '<h2>' + bi('原始材料快照', 'Source snapshot') + '</h2>'
+    if selected:
+        right_panel += '<dl class="snapshot-facts">' + ''.join('<dt>' + bi(zh,en) + '</dt><dd>' + e(value) + '</dd>' for zh,en,value in [
+            ('材料','Material',selected.get('primary_title') or selected.get('primary_document_id')),
+            ('公开日期','Published',_material_time(selected)),
+            ('材料标识','Document ID',selected.get('primary_document_id')),
+            ('内容指纹（目录记录）','Content hash (catalog)',source.get('sha256') or '未记录 / Not recorded'),
+            ('索引版本（目录记录）','Index version (catalog)',source.get('index_folder') or '未记录 / Not recorded')]) + '</dl>'
+        right_panel += '<p class="muted">' + bi('目录信息用于定位材料；不代表本次运行冻结了该目录版本。运行依据见审核记录。','Catalog metadata locates the source; it does not certify this run used that catalog version. See run records.') + '</p>'
+        href = _url(selected.get('source_url') or source.get('source_url'))
+        if href:
+            right_panel += '<a target="_blank" rel="noopener" href="'+href+'">'+bi('打开原始材料','Open original source')+'</a>'
+        right_panel += report_outline(selected.get('answer'), bi)
+    else:
+        right_panel += '<p>'+bi('选择报告后显示关联材料。','Select a report to see its source.')+'</p>'
+    material_panel = right_panel
+    history_panel = (revision_history(selected, bi) if selected else '<p>'+bi('选择报告后查看修订。','Select a report to view revisions.')+'</p>') + advanced
+    cross_panel = '<h2>'+bi('模型交叉 Review','Cross-model review')+'</h2><p class="cross-status">'+bi('尚未运行','Not run')+'</p><p>'+bi('固定整篇报告及证据版本，由其他 Agent 逐段检查。','Freeze the report and evidence versions for paragraph-by-paragraph review by other agents.')+'</p><ul><li>'+bi('事实与引用是否支持结论','Check facts and supporting citations')+'</li><li>'+bi('找出遗漏、反证与推理问题','Identify omissions, counterevidence and reasoning issues')+'</li><li>'+bi('每段展示意见、依据和修改建议','Show findings, evidence and suggested edits for each paragraph')+'</li></ul><p class="muted">'+bi('评审执行尚未接入。后续显示评审模型、时间及对应段落；模型意见不自动采纳正文。','Review execution is not connected yet. Results will identify reviewer model, time and paragraph; model feedback will not auto-accept content.')+'</p>'
+    panels = [('materials','材料','Sources',material_panel),('revisions','修订','Revisions',history_panel),('cross-review','交叉 Review','Cross-review',cross_panel)]
+    right_panel = '<div class="review-tabs" role="tablist" aria-label="Review sidebar">'+''.join('<button type="button" role="tab" id="tab-'+key+'" aria-controls="panel-'+key+'" aria-selected="'+str(i==0).lower()+'" tabindex="'+('0' if i==0 else '-1')+'" data-review-tab="'+key+'">'+bi(zh,en)+'</button>' for i,(key,zh,en,body) in enumerate(panels))+'</div>'
+    right_panel += ''.join('<section role="tabpanel" id="panel-'+key+'" aria-labelledby="tab-'+key+'" '+('hidden' if i else '')+'>'+body+'</section>' for i,(key,zh,en,body) in enumerate(panels))
     payload = json.dumps(client, ensure_ascii=False).replace('<', '\\u003c')
     drawer = '<div id="source-drawer" hidden><div class="source-toolbar"><strong>' + bi("原文证据", "Source evidence") + '</strong><a id="source-new-tab" target="_blank" rel="noopener">' + bi("新窗口 ↗", "New tab ↗") + '</a><button id="close-source" aria-label="Close source">×</button></div><div id="source-caption"></div><iframe id="source-frame" title="Original evidence" sandbox="allow-same-origin allow-scripts"></iframe></div>'
-    return '''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>''' + e(company_name) + ''' · Research Archive</title><style>''' + CSS + '''</style></head><body><header><a href="/companies">Uteki / ''' + bi("公司", "Companies") + '''</a><strong>''' + e(company_name) + '''</strong><button id="language">中文 / EN</button></header>''' + company_tabs(company_id, 'reports') + '''<div id="feedback" role="status" hidden></div><main><aside><div class="sidebar-heading"><strong>''' + bi("研究者", "Researchers") + '''</strong></div><p class="muted compact">''' + bi("独立研究，独立版本与上下文。", "Separate research streams and context.") + '''</p>''' + ''.join(timeline) + '''</aside><div class="detail">''' + content + '''</div><div class="material-rail" role="complementary" aria-label="Report navigation">''' + report_outline(selected.get('answer') if selected else None, bi) + '''<div class="material-toolbar"><h2>''' + bi("报告版本", "Report versions") + '''</h2>''' + nav['controls'] + '''<label class="version-filter">''' + bi("版本状态", "Version status") + '''<select id="version-status"><option value="all" data-zh="全部版本" data-en="All versions">全部版本</option><option value="adopted" data-zh="已采纳" data-en="Adopted">已采纳</option><option value="candidate" data-zh="待审核" data-en="Pending">待审核</option><option value="archived" data-zh="已归档" data-en="Archived">已归档</option><option value="rejected" data-zh="已拒绝" data-en="Rejected">已拒绝</option></select></label><label class="deleted-filter"><input type="checkbox" id="show-deleted"> ''' + bi("显示已删除历史", "Show deleted history") + '''</label></div><p class="material-help">''' + bi("按主材料公开时间排序；每份材料保留一个生效报告，历史版本按需展开。", "By primary-source publication. One effective report per material; revisions remain available.") + '''</p>''' + nav['timeline'] + (revision_history(nav['selected'], bi) if nav['selected'] else '') + '''<details class="context-policy"><summary>''' + bi("后续分析的上下文规则", "Context policy for future analyses") + '''</summary><p>''' + bi("10-K：继承去年、前年的已采纳 10-K 分析。10-Q、电话会和竞对材料：以最近可用的已采纳公司 10-K 分析为基线，验证假设是否得到支持、被削弱、被否定或证据仍不足。", "10-K: inherit adopted annual analyses from the prior two fiscal years. 10-Q, calls and competitor materials: test hypotheses against the latest eligible company 10-K analysis.") + '''</p><p>''' + bi("仅限同一 Agent 与研究主题，遵守材料时间边界。缺失基线明确记录；历史运行不改写。重跑入口会冻结并传入修改意见；保存意见不会自动运行模型。", "Same researcher and scope, with time-bound eligibility. Missing baselines are explicit. Historical runs are unchanged. The rerun entry point freezes and passes feedback; saving does not run a model.") + '''</p></details></div></main>''' + drawer + '''<dialog id="edit-dialog"><form id="edit-form"><h2>''' + bi("编辑报告", "Edit report") + '''</h2><p>''' + bi("保留模型原始答案，新建带人工说明的修订。引用校验失败不会因编辑自动变成通过。", "The original answer is retained. This creates a revision with human notes, not a new model run. Editing does not bypass evidence checks.") + '''</p><label for="human-notes">''' + bi("人工修订说明", "Human notes") + '''</label><textarea id="human-notes" name="human_notes" required rows="3" maxlength="20000"></textarea><div class="actions"><button type="button" id="cancel-edit">''' + bi("取消", "Cancel") + '''</button><button type="submit" class="primary">''' + bi("保存为新版本", "Save new version") + '''</button></div></form></dialog><script type="application/json" id="archive-state">''' + payload + '''</script><script>''' + JS + '''</script></body></html>'''
+    return '''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>''' + e(company_name) + ''' · Research Archive</title><style>''' + CSS + '''</style></head><body><header><a href="/companies">Uteki / ''' + bi("公司", "Companies") + '''</a><strong>''' + e(company_name) + '''</strong><button id="language">中文 / EN</button></header>''' + company_tabs(company_id, active_section) + '''<div id="feedback" role="status" hidden></div><main><aside class="report-list-rail">''' + left_panel + '''</aside><div class="detail"><div id="report-reading">''' + content + '''</div></div><div class="material-rail" role="complementary" aria-label="Source snapshot">''' + right_panel + '''</div></main>''' + drawer + '''<script type="application/json" id="archive-state">''' + payload + '''</script><script>''' + JS + '''</script></body></html>'''
 
 
 CSS = '''
@@ -367,6 +399,7 @@ dialog::backdrop{background:#202b3b55}
 
 JS = '''
 const state=JSON.parse(document.getElementById('archive-state').textContent);
+document.getElementById('researcher-filter')?.addEventListener('change',event=>{const u=new URL(state.route,location.origin);u.searchParams.set('researcher',event.target.value);location.assign(u.href)});
 const lang=()=>document.documentElement.dataset.language||'zh';
 const tr=(zh,en)=>lang()==='en'?en:zh;
 document.querySelectorAll('#scope-filter').forEach(el=>el.onchange=()=>{
@@ -407,20 +440,176 @@ document.querySelectorAll('[data-action]').forEach(button=>button.onclick=()=>{
  else if(action==='withdraw_opinion'){if(confirm(tr('撤回此意见并停止后续继承？历史记录保留。','Withdraw and stop future inheritance? History is retained.')))mutate(action,{opinion_id:button.dataset.opinion})}
  else mutate(action);
 });
-const dialog=document.getElementById('edit-dialog');
-document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{
- document.getElementById('human-notes').value='';
- document.getElementById('answer-editor')?.remove();
- const fields=document.createElement('div');fields.id='answer-editor';
- const intro=dialog.querySelector('p');intro.textContent=tr('修改正文并说明原因。保存为新修订，原报告和引用保持不变；新修订需重新审核。','Edit text and explain why. Save a new revision; the original and citations stay intact. Review is required.');
- function field(label,value,key){const l=document.createElement('label');l.textContent=label;const t=document.createElement('textarea');t.rows=4;t.maxLength=20000;t.value=value;t.dataset.editKey=key;l.append(t);fields.append(l);}
- if(typeof state.selected.answer.report_markdown==='string'){field(tr('报告正文（支持 Markdown）','Report text (Markdown)'),state.selected.answer.report_markdown,'report_markdown');const area=fields.querySelector('textarea');area.rows=22;area.maxLength=60000;}
- (state.selected.answer.claims||[]).forEach((c,i)=>field(tr('判断 ','Claim ')+(i+1),c.text,'claim-'+i));
- ['limitations','findings'].forEach(k=>{if(Array.isArray(state.selected.answer[k]))field(k==='limitations'?tr('未知项（每行一项）','Limitations (one per line)'):tr('验证线索（每行一项）','Findings (one per line)'),state.selected.answer[k].join('\\n'),k)});
- intro.after(fields);dialog.showModal();
+let editing=false,editNodes=[],structuralDraft=null;
+const editStatus=()=>document.getElementById('edit-state');
+function inlineMarkdown(node){
+ if(node.nodeType===3)return node.textContent;
+ const t=[...node.childNodes].map(inlineMarkdown).join('');
+ if(node.tagName==='STRONG'||node.tagName==='B')return '**'+t+'**';
+ if(node.tagName==='A')return '['+t+']('+node.getAttribute('href')+')';
+ if(node.tagName==='BR')return ' ';
+ return t;
+}
+function stopEditing(restore){
+ if(structuralDraft){if(structuralDraft.node)structuralDraft.node.remove();if(structuralDraft.removed)structuralDraft.removed.hidden=false;structuralDraft=null;}
+ editNodes.forEach(({el,html})=>{if(restore)el.innerHTML=html;el.removeAttribute('contenteditable');el.onpaste=null;el.onkeydown=null;el.oninput=null});
+ editing=false;document.querySelector('.edit-actions').hidden=true;document.querySelector('.read-actions').hidden=false;
+ document.body.classList.remove('editing-report');
+}
+function startBlockEdit(target){
+ if(editing||busy||feedbackOpen||state.selected?.status==='deleted')return;editing=true;
+ editNodes=[{el:target,html:target.innerHTML}];
+ editNodes.forEach(({el})=>{
+  el.setAttribute('contenteditable','true');el.setAttribute('spellcheck','true');
+  el.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();document.execCommand('insertText',false,' ')}};
+  el.onpaste=e=>{e.preventDefault();document.execCommand('insertText',false,e.clipboardData.getData('text/plain').replace(/\\r?\\n/g,' '))};
+  el.oninput=()=>{editStatus().textContent=tr('尚未保存','Unsaved')};
+ });
+ document.querySelector('.read-actions').hidden=true;document.querySelector('.edit-actions').hidden=false;
+ document.getElementById('inline-reason').value='';editStatus().textContent=tr('直接修改正文','Edit directly in the report');
+ document.body.classList.add('editing-report');target.focus();
+}
+const sidebarTabs=[...document.querySelectorAll('[data-review-tab]')];
+function selectReviewTab(key){sidebarTabs.forEach(tab=>{const on=tab.dataset.reviewTab===key;tab.setAttribute('aria-selected',String(on));tab.tabIndex=on?0:-1;document.getElementById('panel-'+tab.dataset.reviewTab).hidden=!on})}
+sidebarTabs.forEach((tab,i)=>{tab.onclick=()=>selectReviewTab(tab.dataset.reviewTab);tab.onkeydown=e=>{let next;if(e.key==='ArrowRight')next=(i+1)%sidebarTabs.length;else if(e.key==='ArrowLeft')next=(i+sidebarTabs.length-1)%sidebarTabs.length;else if(e.key==='Home')next=0;else if(e.key==='End')next=sidebarTabs.length-1;else return;e.preventDefault();sidebarTabs[next].click();sidebarTabs[next].focus()}});
+document.querySelectorAll('a[href="#revision-history"]').forEach(link=>link.addEventListener('click',()=>selectReviewTab('revisions')));
+const blockNodes=[...document.querySelectorAll('#report-reading [data-md-line],#report-reading .claim [data-annotatable]')];
+const blockKey=el=>el.hasAttribute('data-md-line')?'md:'+el.dataset.mdLine+(el.hasAttribute('data-md-cell')?':'+el.dataset.mdCell:''):'claim:'+(Number(el.dataset.annotatable)-1);
+const progress=document.createElement('span');progress.id='block-progress';progress.setAttribute('role','status');
+document.querySelector('.report-toolbar')?.prepend(progress);
+const accepted=k=>state.block_decisions?.[k]?.accepted===true;
+function updateProgress(){const keys=Object.keys(state.blocks||{}),n=keys.filter(accepted).length;progress.textContent=tr('内容采纳 ','Content accepted ')+n+' / '+keys.length;blockNodes.forEach(el=>el.dataset.accepted=String(accepted(blockKey(el))))}
+const blockActions=document.createElement('div');blockActions.id='block-actions';blockActions.hidden=true;
+const acceptButton=document.createElement('button');acceptButton.type='button';blockActions.append(acceptButton);document.body.append(blockActions);
+let hoveredBlock=null, hideBlockTimer=null;const actionSlots=new Map();
+function cancelBlockHide(){clearTimeout(hideBlockTimer);hideBlockTimer=null}
+function scheduleBlockHide(){if(feedbackOpen||hideBlockTimer||blockActions.contains(document.activeElement))return;hideBlockTimer=setTimeout(()=>{blockActions.classList.remove('actions-visible');hideBlockTimer=null},600)}
+blockActions.addEventListener('mouseenter',()=>{cancelBlockHide();blockActions.classList.add('actions-visible')});
+blockActions.addEventListener('mouseleave',scheduleBlockHide);
+blockActions.addEventListener('focusin',cancelBlockHide);
+blockActions.addEventListener('focusout',scheduleBlockHide);
+let feedbackOpen=false;
+function positionActions(el){const slot=actionSlots.get(el);if(slot&&blockActions.parentElement!==slot)slot.append(blockActions)}
+function showBlockActions(el){if(editing||busy||feedbackOpen)return;cancelBlockHide();hoveredBlock=el;acceptButton.textContent=accepted(blockKey(el))?tr('撤销采纳','Undo acceptance'):tr('采纳','Accept');positionActions(el);blockActions.hidden=false;requestAnimationFrame(()=>blockActions.classList.add('actions-visible'))}
+blockNodes.forEach(el=>{
+ el.classList.add('review-block');el.tabIndex=0;
+ const anchor=el.closest('.report-table')||el;
+ let slot=anchor.nextElementSibling;
+ if(!slot?.classList.contains('block-action-slot')){slot=document.createElement('div');slot.className='block-action-slot';anchor.after(slot)}
+ actionSlots.set(el,slot);
+ slot.addEventListener('mouseenter',()=>{cancelBlockHide();if(hoveredBlock===el)blockActions.classList.add('actions-visible')});
+ slot.addEventListener('mouseleave',scheduleBlockHide);
+ el.addEventListener('mouseenter',()=>showBlockActions(el));el.addEventListener('mouseleave',scheduleBlockHide);
+ el.addEventListener('focus',()=>showBlockActions(el));el.addEventListener('blur',scheduleBlockHide);
+ el.addEventListener('dblclick',e=>{if(e.target.closest('a'))return;cancelBlockHide();blockActions.classList.remove('actions-visible');blockActions.hidden=true;startBlockEdit(el)});
+ el.addEventListener('keydown',e=>{if(!editing&&e.key==='Enter'){e.preventDefault();cancelBlockHide();blockActions.classList.remove('actions-visible');blockActions.hidden=true;startBlockEdit(el)}});
 });
-document.getElementById('cancel-edit').onclick=()=>dialog.close();
-document.getElementById('edit-form').onsubmit=event=>{event.preventDefault();const answer=structuredClone(state.selected.answer);document.querySelectorAll('[data-edit-key]').forEach(t=>{const k=t.dataset.editKey;if(k==='report_markdown')answer[k]=t.value;else if(k.startsWith('claim-'))answer.claims[Number(k.slice(6))].text=t.value;else answer[k]=t.value.split('\\n').filter(v=>v.trim())});mutate('edit',{answer,human_notes:new FormData(event.target).get('human_notes')})};
+function beginStructure(draft){
+ if(editing||busy||feedbackOpen)return false;
+ structuralDraft=draft;editing=true;editNodes=[];blockActions.hidden=true;
+ document.querySelector('.read-actions').hidden=true;document.querySelector('.edit-actions').hidden=false;
+ document.getElementById('inline-reason').value='';document.body.classList.add('editing-report');
+ editStatus().textContent=tr('尚未保存 · 可取消恢复','Unsaved · Cancel to restore');return true;
+}
+function insertBoundary(after,index){
+ const gap=document.createElement('div');gap.className='block-insert-gap';
+ const menu=document.createElement('details');const plus=document.createElement('summary');plus.textContent='＋';plus.setAttribute('aria-label',tr('新增内容块','Insert block'));menu.append(plus);
+ const choices=document.createElement('div');choices.className='block-type-choices';
+ for(const [kind,zh,en] of [['fact','事实','Fact'],['inference','推断','Inference'],['hypothesis','假设','Hypothesis'],['question','待验证问题','Question']]){
+  const button=document.createElement('button');button.type='button';button.textContent=tr(zh,en);
+  button.onclick=()=>{
+   const node=document.createElement('article');node.className='inserted-block';
+   const label=document.createElement('small');label.textContent=tr(zh+' · 人工新增，待核查',en+' · Human addition, unverified');
+   const editor=document.createElement('div');editor.className='prose';editor.contentEditable='true';editor.setAttribute('role','textbox');editor.setAttribute('aria-label',tr('新增段落','New paragraph'));editor.dataset.placeholder=tr('在这里写内容…','Write here…');
+   editor.onpaste=e=>{e.preventDefault();document.execCommand('insertText',false,e.clipboardData.getData('text/plain'))};
+   node.append(label,editor);
+   if(!beginStructure({action:'insert_block',index,kind,node,editor}))return;
+   menu.open=false;gap.after(node);editor.focus();
+  };choices.append(button);
+ }
+ menu.append(choices);gap.append(menu);after.after(gap);return gap;
+}
+const structureNodes=[...document.querySelectorAll('#report-reading .claim,#report-reading .report-body > [data-md-line],#report-reading .report-body > .report-table')];
+if(!structureNodes.length&&state.selected&&state.selected.status!=='deleted'){
+ const sentinel=document.createElement('span');(document.querySelector('#report-reading .report-body')||document.getElementById('report-reading')).append(sentinel);insertBoundary(sentinel,0);
+}
+if(structureNodes.length&&state.selected?.status!=='deleted'){
+ const first=structureNodes[0],sentinel=document.createElement('span');first.before(sentinel);insertBoundary(sentinel,0);
+ structureNodes.forEach(node=>{
+  const claim=node.classList.contains('claim');
+  const indices=claim?[Number(node.querySelector('[data-annotatable]').dataset.annotatable)-1]:node.hasAttribute('data-md-line')?[Number(node.dataset.mdLine)]:[...node.querySelectorAll('[data-md-line]')].map(el=>Number(el.dataset.mdLine));
+  const start=Math.min(...indices),end=Math.max(...indices),count=claim?1:end-start+1;
+  // Control is outside editable text; deleting a table operates on the whole table.
+  let shell=node;
+  if(!claim){shell=document.createElement('div');shell.className='structure-block';node.before(shell);shell.append(node);}
+  shell.classList.add('structure-block');
+  const remove=document.createElement('button');remove.type='button';remove.className='delete-block';remove.textContent=tr('删除','Delete');remove.setAttribute('aria-label',tr('删除这一块','Delete this block'));
+  remove.onclick=()=>{if(!beginStructure({action:'delete_block',index:start,count,removed:shell}))return;shell.hidden=true;};shell.prepend(remove);
+  const following=shell.nextElementSibling;const boundaryAnchor=following?.classList.contains('block-action-slot')?following:shell;
+  insertBoundary(boundaryAnchor,end+1);
+ });
+}
+const likeButton=document.createElement('button'),dislikeButton=document.createElement('button');
+likeButton.type=dislikeButton.type='button';likeButton.textContent=tr('赞','Like');dislikeButton.textContent=tr('踩','Dislike');
+blockActions.append(likeButton,dislikeButton);
+const feedbackForm=document.createElement('form');feedbackForm.id='block-feedback-form';feedbackForm.hidden=true;
+const feedbackReason=document.createElement('textarea');feedbackReason.required=true;feedbackReason.maxLength=12000;feedbackReason.rows=3;feedbackReason.placeholder=tr('这段哪里不好？希望怎样改？','What is wrong with this paragraph? How should it change?');feedbackReason.setAttribute('aria-label',tr('点踩原因','Reason for dislike'));
+const feedbackSave=document.createElement('button'),feedbackCancel=document.createElement('button');feedbackSave.type='submit';feedbackCancel.type='button';feedbackSave.textContent=tr('保存并用于重分析','Save for reanalysis');feedbackCancel.textContent=tr('取消','Cancel');
+const feedbackMessage=document.createElement('span');feedbackMessage.setAttribute('role','status');
+feedbackForm.append(feedbackReason,feedbackSave,feedbackCancel,feedbackMessage);blockActions.append(feedbackForm);
+let feedbackTarget=null;
+function closeFeedback(){feedbackForm.hidden=true;feedbackOpen=false;feedbackTarget=null;acceptButton.disabled=false;scheduleBlockHide()}
+feedbackCancel.onclick=closeFeedback;
+dislikeButton.onclick=()=>{if(busy||editing||!hoveredBlock)return;feedbackTarget=hoveredBlock;feedbackOpen=true;cancelBlockHide();feedbackForm.hidden=false;feedbackReason.value='';feedbackMessage.textContent='';acceptButton.disabled=true;positionActions(feedbackTarget);feedbackReason.focus()};
+async function saveBlockFeedback(vote,el,reason){
+ if(busy||!el)return;const key=blockKey(el);busy=true;likeButton.disabled=true;dislikeButton.disabled=true;feedbackSave.disabled=true;
+ try{const response=await fetch('/api/research-archive',{method:'POST',headers:{'Content-Type':'application/json','X-Uteki-Request':'1'},body:JSON.stringify({snapshot_id:state.selected.id,action:'comment',expected_revision:state.selected.revision,feedback_vote:vote,block_id:key,block_hash:state.blocks[key],text:reason,kind:'preference',carry_forward:true})});const result=await response.json();if(!response.ok)throw Error(result.error||response.status);state.selected.revision=result.revision;el.dataset.feedback=vote;closeFeedback();const notice=document.getElementById('feedback');notice.hidden=false;notice.textContent=tr('段落反馈已保存，将带入后续重分析。','Paragraph feedback saved for subsequent reanalysis.');}
+ catch(error){feedbackMessage.textContent=tr('未保存：','Not saved: ')+error.message;const notice=document.getElementById('feedback');notice.hidden=false;notice.textContent=feedbackMessage.textContent}
+ finally{busy=false;likeButton.disabled=false;dislikeButton.disabled=false;feedbackSave.disabled=false}
+}
+likeButton.onclick=()=>{if(feedbackOpen)return;saveBlockFeedback('up',hoveredBlock,tr('认可这段分析，请保留其有效做法。','This paragraph is useful; retain its effective approach.'))};
+feedbackForm.onsubmit=e=>{e.preventDefault();if(feedbackReason.value.trim())saveBlockFeedback('down',feedbackTarget,feedbackReason.value.trim())};
+acceptButton.onclick=async()=>{
+ if(!hoveredBlock||busy||editing)return;
+ const key=blockKey(hoveredBlock),action=accepted(key)?'unaccept_block':'accept_block';busy=true;acceptButton.disabled=true;
+ try{
+  const response=await fetch('/api/research-archive',{method:'POST',headers:{'Content-Type':'application/json','X-Uteki-Request':'1'},body:JSON.stringify({snapshot_id:state.selected.id,action,expected_revision:state.selected.revision,block_id:key,block_hash:state.blocks[key]})});
+  const result=await response.json();if(!response.ok)throw Error(result.error||response.status);
+  state.selected.revision=result.revision;state.block_decisions=result.snapshot.block_decisions||{};updateProgress();
+  acceptButton.textContent=accepted(key)?tr('撤销采纳','Undo acceptance'):tr('采纳','Accept');
+ }catch(error){const feedback=document.getElementById('feedback');feedback.hidden=false;feedback.textContent=tr('未保存：','Not saved: ')+error.message}
+ finally{busy=false;acceptButton.disabled=false}
+};
+
+
+document.getElementById('language').addEventListener('click',updateProgress);
+updateProgress();
+document.getElementById('cancel-inline')?.addEventListener('click',()=>stopEditing(true));
+document.getElementById('save-inline')?.addEventListener('click',async()=>{
+ if(busy)return;
+ if(structuralDraft){
+  const draft=structuralDraft;
+  const text=draft.editor?.textContent?.trim();
+  if(draft.action==='insert_block'&&!text){editStatus().textContent=tr('请填写内容','Enter block text');return}
+  await mutate(draft.action,{block_index:draft.index,block_count:draft.count||1,block_kind:draft.kind,text,human_notes:document.getElementById('inline-reason').value.trim()||tr('调整报告内容块','Change report blocks')});return;
+ }
+ const changed=editNodes.filter(x=>x.el.innerHTML!==x.html);
+ if(!changed.length){stopEditing(false);return}
+ const answer=structuredClone(state.selected.answer), lines=answer.report_markdown?.split('\\n');
+ for(const {el} of changed){
+  if(el.hasAttribute('data-md-line')){
+   const i=Number(el.dataset.mdLine),value=inlineMarkdown(el);
+   if(el.hasAttribute('data-md-cell')){
+    if(value.includes('|')){editStatus().textContent=tr('表格内容不能包含竖线','Table text cannot contain a pipe');return}
+    const cells=lines[i].trim().replace(/^\\||\\|$/g,'').split('|');cells[Number(el.dataset.mdCell)]=value;lines[i]='|'+cells.join('|')+'|';
+   }else{const prefix=lines[i].match(/^\\s*(#{1,6}\\s+|-\\s+)/)?.[0]||'';lines[i]=prefix+value}
+  }else answer.claims[Number(el.dataset.annotatable)-1].text=el.textContent;
+ }
+ if(lines)answer.report_markdown=lines.join('\\n');
+ await mutate('edit',{answer,human_notes:document.getElementById('inline-reason').value.trim()||tr('正文原位修订','Inline report revision')});
+});
+window.addEventListener('beforeunload',e=>{if(editing&&(structuralDraft||editNodes.some(x=>x.el.innerHTML!==x.html))&&!busy){e.preventDefault();e.returnValue=''}});
+document.addEventListener('click',e=>{if(editing&&e.target.closest('[contenteditable] a'))e.preventDefault()},true);
 document.getElementById('opinion-form')?.addEventListener('submit',event=>{event.preventDefault();const data=new FormData(event.target);mutate('comment',{text:data.get('text'),kind:data.get('kind'),carry_forward:data.has('carry_forward')})});
 const drawer=document.getElementById('source-drawer');
 const citationPreview=document.createElement('div');

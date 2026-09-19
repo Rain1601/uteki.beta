@@ -40,18 +40,18 @@ class ArchiveRoutesTests(unittest.TestCase):
         self.assertIn('/source#block-', citation['url'])
 
     def test_company_tabs_and_legacy_routes(self):
-        for path, expected in [('/companies/alphabet', '研究档案'),
+        for path, expected in [('/companies/alphabet', 'report-reading'),
                 ('/companies/alphabet/data', '财务指标'), ('/companies', 'Alphabet'), ('/companies/alphabet/data/business-map', 'Data Agent')]:
             status, body = self.request(path)
             self.assertEqual(status, 200, path)
             self.assertIn(expected, body.decode())
 
     def test_company_first_hierarchy_and_boundaries(self):
-        expected = [('/', 'Alphabet'), ('/companies/alphabet', '公司研究工作区'),
+        expected = [('/', 'Alphabet'), ('/companies/alphabet', 'report-reading'),
             ('/companies/alphabet/materials', '可检索材料与文档目录'),
             ('/companies/alphabet/data', '财务指标'),
             ('/companies/alphabet/data/business-map', '业务图'),
-            ('/companies/alphabet/reports', '研究报告')]
+            ('/companies/alphabet/reports', 'report-reading')]
         for path, label in expected:
             status, body = self.request(path)
             self.assertEqual(status, 200, path)

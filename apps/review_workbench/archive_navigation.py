@@ -3,7 +3,7 @@ from html import escape
 from urllib.parse import urlencode
 import json
 from uteki.agents.research_archive import Store
-from .report_text import answer_text, text_changes
+from .report_text import answer_text, text_changes, answer_changes
 
 
 def navigation(snapshots, selected_id, researcher_id, scope, material_id, route, bi, badge, time, documents=None):
@@ -42,12 +42,14 @@ def navigation(snapshots, selected_id, researcher_id, scope, material_id, route,
         agent_links.append('<a class="agent-entry'+(' selected' if identity==researcher_id else '')+'" '+('aria-current="page" ' if identity==researcher_id else '')+'href="'+escape(target,quote=True)+'"><strong>'+escape(label)+'</strong><small>'+bi(f'{count} 份分析材料',f'{count} research materials')+'</small></a>')
     controls = '<div class="research-filters">' + select('scope-filter', bi('研究主题', 'Research scope'), {s['scope']: ('公司增长驱动与风险 / Company drivers' if s['scope']=='company-drivers' else s['scope']) for s in stream}, scope) + '</div>'
     timeline = []
+    report_links = []
     for doc, items in groups.items():
         active, display = current(items), preview(items)
         count = sum(r['status'] == 'candidate' for r in items)
         is_selected = selected and selected['primary_document_id'] == doc
         form = documents.get(doc,{}).get('form') or display.get('primary_form')
         purpose = bi('年度研究','Annual research') if form=='10-K' else bi('验证假设','Hypothesis validation') if form else bi('类型待确认','Type unconfirmed')
+        report_links.append('<a class="report-choice'+(' selected' if is_selected else '')+'" href="'+escape(link(display),quote=True)+'" '+('aria-current="page"' if is_selected else '')+'>'+escape(display.get('primary_title') or doc)+'</a>')
         versions_html = []
         for version in items:
             chosen = selected and selected['id'] == version['id']
@@ -65,7 +67,7 @@ def navigation(snapshots, selected_id, researcher_id, scope, material_id, route,
         versions = '<p class="warning">'+bi('此版本不属于所选研究者或主题。请选择对应报告。', 'This snapshot does not belong to the selected researcher or scope.')+'</p>'
     material_list='<div class="material-list" aria-label="Analysis materials">'+''.join(timeline)+'</div>'
     return dict(rows=filtered, selected=selected, researcher_id=researcher_id, scope=scope, controls=controls,
-                agents=''.join(agent_links),timeline=material_list,versions=versions)
+                agents=''.join(agent_links),timeline=material_list,versions=versions, report_links=''.join(report_links), researcher_control=select('researcher-filter',bi('研究者','Researcher'),researchers,researcher_id))
 
 
 def editor_label(snapshot, bi):
@@ -79,6 +81,7 @@ def editor_label(snapshot, bi):
 def revision_history(snapshot, bi):
     result = '<section class="revision-log" id="revision-history"><h2>'+bi('修订历史', 'Revision history')+'</h2>'
     result += '<p>'+editor_label(snapshot, bi)+' · '+escape(snapshot.get('author') or '未记录 / Not recorded')+'</p>'
+    result += '<p class="muted">'+bi('保存时间','Saved at')+' · '+escape(snapshot.get('edited_at') or snapshot.get('created_at') or '未记录 / Not recorded')+'</p>'
     if snapshot.get('edit_reason'):
         result += '<p>'+escape(snapshot['edit_reason'])+'</p>'
     provenance = snapshot.get('agent_provenance')
@@ -92,7 +95,7 @@ def revision_history(snapshot, bi):
         result += '<details class="version-history" open><summary>'+bi('查看本次修改', 'View this revision’s changes')+'</summary>'
         for key, value in changes.items():
             if key == 'answer':
-                result += text_changes(answer_text(value.get('before')), answer_text(value.get('after')), bi)
+                result += answer_changes(value.get('before'), value.get('after'), bi)
                 before, after = value.get('before'), value.get('after')
                 if isinstance(before, dict) and isinstance(after, dict):
                     old = [c.get('citations') for c in before.get('claims', [])]
@@ -103,6 +106,12 @@ def revision_history(snapshot, bi):
                 result += '<h3>'+bi('修订说明' if key == 'human_notes' else key, key)+'</h3>'
                 result += text_changes(str(value.get('before') or ''), str(value.get('after') or ''), bi)
         result += '</details>'
+    block_events = snapshot.get('block_review_events', [])
+    if block_events:
+        result += '<details class="block-review-history"><summary>'+bi('逐块采纳记录','Block acceptance history')+'</summary><ul>'
+        for event in block_events:
+            result += '<li>'+bi('采纳' if event.get('accepted') else '撤销采纳','Accepted' if event.get('accepted') else 'Acceptance withdrawn')+' · '+escape(str(event.get('block_id','')))+' · '+escape(str(event.get('actor','')))+' · '+escape(str(event.get('at','')))+'</li>'
+        result += '</ul></details>'
     lineage = snapshot.get('revision_lineage', [])
     if lineage:
         result += '<ol class="revision-lineage">'

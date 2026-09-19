@@ -320,3 +320,112 @@ html[data-language=en] body[data-workbench=workspace] [lang=zh]{display:none}
 @media(max-width:600px){
  body[data-workbench=workspace] :is(.workspace-table,.scroll) table{min-width:620px}
 }
+
+/* 2026-09-19: direct report workspace, fixed company section navigation. */
+body[data-workbench] .company-tabs{position:sticky;top:0;z-index:12;min-height:48px;box-sizing:border-box;background:#fff;align-items:center;flex-shrink:0}
+body[data-workbench=research] main{grid-template-columns:250px minmax(0,1fr) 280px}
+body[data-workbench=research] .report-list-rail{padding:24px 16px;display:block}
+body[data-workbench=research] .report-list-rail .material-group{margin:20px 0;border-top:1px solid var(--line);padding-top:14px}
+body[data-workbench=research] .report-list-rail .version-row{display:block;padding:8px;font-size:12px;overflow-wrap:anywhere}
+body[data-workbench=research] .report-list-rail .version-row.selected{background:#e5edfa}
+body[data-workbench=research] .snapshot-facts{display:block;font-size:12px;line-height:1.7}
+body[data-workbench=research] .snapshot-facts dt{color:var(--muted);margin-top:16px}
+body[data-workbench=research] .snapshot-facts dd{margin:4px 0;overflow-wrap:anywhere}
+body[data-workbench=research] #edit-dialog{width:100%;max-height:none;padding:0;border:0;box-sizing:border-box}
+body[data-workbench=research] [hidden]{display:none!important}
+body[data-workbench=research] .detail{scroll-padding-top:24px}
+@media(max-width:1000px){body[data-workbench=research] main{grid-template-columns:210px minmax(0,1fr)}body[data-workbench=research] .material-rail{grid-column:2}}
+@media(max-width:700px){body[data-workbench=research] main{display:flex;flex-direction:column;overflow:visible}body[data-workbench=research] .report-list-rail{order:0;max-height:220px;overflow:auto}body[data-workbench=research] .detail{order:1}body[data-workbench=research] .material-rail{order:2;max-height:none}body[data-workbench=research]{height:auto;overflow:auto}}
+
+/* User-directed Claude/Anthropic-inspired quiet reading surface. */
+body[data-workbench=research]{--paper:#f5f4ef;--surface:#faf9f6;--rail:#eeede7;--ink:#30302b;--muted:#77766d;--line:#e3e1d8;--line2:#e3e1d8;--accent:#a65d43;--blue:#a65d43;--selected:#e8e5dc;font-family:"Avenir Next","PingFang SC",sans-serif}
+body[data-workbench=research] :is(#site-navigation,header,.company-tabs){background:var(--paper)}
+body[data-workbench=research] main{grid-template-columns:220px minmax(0,1fr) 260px}
+body[data-workbench=research] .report-list-rail{background:var(--rail);border-right:0;padding:28px 18px}
+body[data-workbench=research] .report-list-rail h2{font-size:15px;font-weight:500;margin-bottom:24px}
+body[data-workbench=research] .report-list-rail>label{display:grid;gap:8px;color:var(--muted);font-size:12px}
+body[data-workbench=research] #researcher-filter{width:100%;background:transparent;border:1px solid var(--line);padding:9px;font-size:13px}
+body[data-workbench=research] .report-choices{display:block;padding:0;margin:22px 0;border:0;background:transparent}
+body[data-workbench=research] .report-choice{display:block;margin:4px 0;padding:12px 10px;color:var(--ink);font-size:13px;line-height:1.7;border-radius:6px;text-decoration:none;overflow-wrap:anywhere}
+body[data-workbench=research] .report-choice:hover,body[data-workbench=research] .report-choice.selected{background:var(--selected)}
+body[data-workbench=research] .detail{background:var(--surface);padding:36px clamp(24px,4vw,64px) 80px}
+body[data-workbench=research] :is(.detail-heading h1,.report-body h1,.report-body h2){font-family:Georgia,"Songti SC","STSong",serif;font-weight:400;letter-spacing:0;line-height:1.5}
+body[data-workbench=research] .prose,body[data-workbench=research] .report-body{color:var(--ink);font-size:16px;line-height:1.95}
+body[data-workbench=research] .material-rail{background:var(--paper);padding:28px 20px;font-size:12px;border-left:1px solid var(--line)}
+body[data-workbench=research] .material-rail h2{font-size:14px;font-weight:500}
+body[data-workbench=research] .archive-options{margin-top:28px;border-top:1px solid var(--line);padding-top:16px}
+body[data-workbench=research] .archive-options summary{cursor:pointer;color:var(--muted)}
+body[data-workbench=research] :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media(min-width:701px) and (max-width:1000px){body[data-workbench=research] main{grid-template-columns:180px minmax(0,1fr) 210px}body[data-workbench=research] .material-rail{grid-column:auto}}
+@media(max-width:700px){body[data-workbench=research] main{display:flex}body[data-workbench=research] .report-list-rail{display:block;max-height:240px}body[data-workbench=research] .report-list-rail>label{max-width:260px}body[data-workbench=research] .report-choices{margin:10px 0}body[data-workbench=research] .detail{padding:24px 20px}}
+
+/* Stable in-document editing and a persistent reading toolbar. */
+body[data-workbench=research] .report-toolbar{position:sticky;top:0;z-index:15;background:var(--surface);border-bottom:1px solid var(--line);padding:12px 0;margin-bottom:24px}
+body[data-workbench=research] .report-toolbar :is(.read-actions,.edit-actions){display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+body[data-workbench=research] .report-toolbar button{min-height:38px;font-size:13px}
+body[data-workbench=research] .more-actions{position:relative;margin-left:auto}
+body[data-workbench=research] .more-actions summary{cursor:pointer;padding:8px 12px;list-style:none}
+body[data-workbench=research] .more-actions>div{position:absolute;right:0;top:100%;width:220px;background:var(--paper);border:1px solid var(--line);padding:12px;display:grid;gap:8px;box-shadow:0 8px 24px #30302b12}
+body[data-workbench=research] #inline-reason{flex:1;min-width:130px;width:180px;border:0;border-bottom:1px solid var(--line);padding:8px;background:transparent;font-size:12px}
+body[data-workbench=research] #edit-state{font-size:12px;color:var(--muted)}
+body[data-workbench=research] [contenteditable=true]{outline:none;cursor:text}
+body[data-workbench=research] [contenteditable=true]:hover,body[data-workbench=research] [contenteditable=true]:focus{box-shadow:none;background:#eeeae2;border-radius:4px;outline:none}
+body[data-workbench=research] .paragraph-change{margin:16px 0;padding-bottom:12px;border-bottom:1px solid var(--line)}
+body[data-workbench=research] .paragraph-change pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.75}
+body[data-workbench=research] .report-bullet:before{content:'• ';color:var(--muted)}
+body[data-workbench=research] .detail{padding-top:0}
+body[data-workbench=research].editing-report #annotation-toolbar{display:none!important}
+body[data-workbench=research] #feedback:not([hidden]){position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:40;max-width:80vw}
+@media(max-width:700px){body[data-workbench=research] .report-toolbar{top:48px}body[data-workbench=research] #inline-reason{flex-basis:100%}}
+
+/* Block-by-block review: hover, double-click to edit, persistent progress. */
+body[data-workbench=research] .review-block{border-radius:4px;cursor:text}
+body[data-workbench=research] .review-block:hover,body[data-workbench=research] .review-block:focus{background:#eeeae2;outline:none;box-shadow:none}
+body[data-workbench=research] #block-actions{position:fixed;z-index:30;padding:4px;background:var(--paper);border:1px solid var(--line);border-radius:6px}
+body[data-workbench=research] #block-actions button{font-size:12px;padding:5px 10px;min-height:28px}
+body[data-workbench=research] #block-progress{font-size:13px;color:var(--muted);display:block;margin-bottom:8px}
+body[data-workbench=research] .review-block[data-accepted=true]{background:#eef0e9}
+body[data-workbench=research] .review-block[data-accepted=true]:hover{background:#e5e9dc}
+
+/* Place the acceptance control below the reviewed block, clear of its text. */
+body[data-workbench=research] .claim{margin-bottom:42px}
+body[data-workbench=research] .report-body>[data-md-line]{margin-bottom:42px}
+body[data-workbench=research] .review-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 24px;padding-bottom:8px;position:sticky;top:0;background:var(--paper);z-index:2}
+body[data-workbench=research] .review-tabs button{border:0;background:transparent;font-size:12px;padding:7px 8px;white-space:nowrap}
+body[data-workbench=research] .review-tabs button[aria-selected=true]{background:var(--selected);color:var(--ink)}
+body[data-workbench=research] .cross-status{display:inline-block;padding:4px 8px;background:var(--selected);border-radius:4px;color:var(--muted)}
+body[data-workbench=research] #panel-cross-review{line-height:1.8}
+body[data-workbench=research] #panel-cross-review ul{padding-left:18px}
+
+/* Compact text-local acceptance and preference feedback. */
+body[data-workbench=research] #block-actions{max-width:min(340px,calc(100vw - 16px));box-shadow:0 4px 14px #30302b0d}
+body[data-workbench=research] #block-feedback-form{width:300px;max-width:100%;padding:8px 4px}
+body[data-workbench=research] #block-feedback-form textarea{width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);font-size:13px;line-height:1.6}
+body[data-workbench=research] .claim{margin-bottom:24px}
+body[data-workbench=research] .report-body>[data-md-line]{margin-bottom:20px}
+
+/* Stable paragraph footer: no cursor coordinates or overlay positioning. */
+body[data-workbench=research] .block-action-slot{min-height:36px;display:flex;justify-content:flex-end;align-items:flex-start;max-width:76ch;margin:4px 0 8px}
+body[data-workbench=research] #block-actions{position:static;inset:auto;z-index:auto;max-width:100%;margin:0;padding:0;background:transparent;border:0;box-shadow:none;border-radius:4px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 140ms ease,visibility 140ms ease}
+body[data-workbench=research] #block-actions.actions-visible{opacity:1;visibility:visible;pointer-events:auto}
+body[data-workbench=research] #block-actions>button{background:transparent;border:0;border-radius:4px;color:var(--muted);padding:5px 9px;min-height:30px}
+body[data-workbench=research] #block-actions>button:hover{background:var(--selected);color:var(--ink)}
+body[data-workbench=research] #block-feedback-form{width:320px;max-width:100%;padding:10px 0 4px}
+body[data-workbench=research] .claim .citations{margin-top:4px}
+body[data-workbench=research] .report-body>[data-md-line]{margin-bottom:0}
+body[data-workbench=research] .review-block{transition:background-color 140ms ease}
+@media(prefers-reduced-motion:reduce){body[data-workbench=research] #block-actions,body[data-workbench=research] .review-block{transition:none}}
+
+/* Structural editing: quiet insertion gaps and persistent delete affordances. */
+body[data-workbench=research] .structure-block{position:relative;padding-top:30px}
+body[data-workbench=research] .delete-block{position:absolute;right:0;top:0;border:0;background:transparent;color:var(--muted);padding:3px 8px;min-height:26px;font-size:12px}
+body[data-workbench=research] .delete-block:hover{background:#f3e6e1;color:#964b38}
+body[data-workbench=research] .block-insert-gap{height:32px;display:flex;justify-content:center;align-items:center;position:relative}
+body[data-workbench=research] .block-insert-gap summary{opacity:0;cursor:pointer;list-style:none;padding:0 12px;font-size:20px;line-height:28px;color:var(--muted);transition:opacity 140ms ease}
+body[data-workbench=research] .block-insert-gap:hover summary,body[data-workbench=research] .block-insert-gap:focus-within summary,body[data-workbench=research] .block-insert-gap details[open] summary{opacity:1}
+body[data-workbench=research] .block-type-choices{position:absolute;z-index:20;top:30px;left:50%;transform:translateX(-50%);display:flex;gap:4px;padding:8px;background:var(--paper);border:1px solid var(--line);border-radius:6px;white-space:nowrap}
+body[data-workbench=research] .inserted-block{padding:18px;background:#f1efe7;border-radius:5px}
+body[data-workbench=research] .inserted-block [contenteditable]{min-height:70px;margin-top:12px;outline:none}
+body[data-workbench=research] .inserted-block [contenteditable]:empty:before{content:attr(data-placeholder);color:var(--muted)}
+body[data-workbench=research].editing-report .delete-block,body[data-workbench=research].editing-report .block-insert-gap{pointer-events:none;opacity:.35}
+@media(hover:none){body[data-workbench=research] .block-insert-gap summary{opacity:1}}
