@@ -472,3 +472,29 @@ Validation: 54 archive/UI/route checks and 14 structure/feedback/acceptance/revi
 ## Selection endpoint polish
 
 Shortened block acceptance label to 采纳 / Accept. Annotation feedback toolbar anchors above the selection focus endpoint, with backward/multiline fallback and viewport clamping; no change to annotation content. Deferred editorial bold/keyword emphasis to future report authoring as requested. JavaScript syntax and 26 annotation tests passed; browser visual verification remains unavailable.
+
+
+## 2026-09-19: production home card workspace
+
+User-approved direction supersedes pagination and expanding the whole layout. The real home now uses fixed card boundaries: reading queue, company research changes/recent/history, new companies/watchlist, and explicit disconnected news/portfolio states. Hover reveals a short excerpt inside the item; click reads inside the same card. No popup, backdrop or neighboring card reflow. Local read marks bind to report revision, not daily company checkboxes, and do not approve research. Full report links preserve the established evidence/edit workflow.
+
+Palette: paper #F3F1EC, card #FCFBF8, ink #302F2A, muted #716D64, line #DFDBD2, accent #96503B. Songti headings with system fallback; compact sans-serif body. Main card occupies two rows; remaining modules use smaller cards. Native local scrolling; mobile uses horizontal card browsing. Shared navigation is sticky with restrained compact typography on scroll, reserving its height to prevent jumps. All text bilingual. Unknown company additions remain unknown; historical records exclude future/deleted records.
+
+Source render and focused tests required; browser visual verification unavailable under current browser policy, so actual viewport/trackpad review remains manual. No model calls, financial data generation or deployment involved.
+
+
+## Company directory compact pass
+
+User explicitly requested company directory optimization. Remove duplicate product header, oversized hero and four KPI blocks. Compact heading, existing search/index/attention/holding filters, horizontally scrollable theme filters, then one continuously scrollable company table. No pagination; all 50 recorded companies remain filterable. Sticky table headings and shared navigation stay visible. Redundant sector/tag display is removed from rows; tags remain searchable. Selection policy and dated source links remain under Scope and sources. No company data, holding labels or research decisions modified. Palette follows shared paper/ink/line/accent tokens; 23px Songti heading, 13px company titles, 11–12px metadata. Code and rendering checks performed; browser visual review remains manual under current policy.
+
+
+### Reference calibration
+
+Read the local uteki research-exoskeleton mock styles and production company workspace, viewed its saved 2026-05-31 harness desktop screenshot, and read rain.blog global/article styles. These are references, not user-confirmed favorite screens. Preserve this app’s single-window table workflow; borrow restrained surfaces, stronger company names, neutral secondary text and cohesive controls. Avoid copying the screenshot’s large hero or sidebar, which conflict with the current request. Corrected a bilingual heading span selector that shrank the title. Applied a page-scoped six-color palette and compact segmented controls. Current page has not been visually verified in-browser; do not equate unit tests to design approval.
+
+
+## Versioned style baseline
+
+The maintained interface baseline is [Uteki interface style guide](../skills/uteki-interface/references/style-guide.md), loaded by [the reusable skill](../skills/uteki-interface/SKILL.md) and repository AGENTS.md. Historical notes above are implementation history; the maintained guide and latest user requests govern future decisions.
+
+Home hover now reserves two lines for the excerpt, avoiding height changes and row displacement. Mouse focus does not leave a focus ring; keyboard focus remains visible. Only a subtle background/opacity change remains. This is not final visual approval.

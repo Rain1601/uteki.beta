@@ -15,3 +15,7 @@ the user explicitly includes it. Keep UI bilingual, evidence traceable, and
 snapshot/adoption rules intact. No model calls or deployment for styling work.
 
 Record meaningful design choices and checks in `docs/FRONTEND_DESIGN.md`.
+
+## Uteki interface baseline
+
+For Uteki interface work, read `skills/uteki-interface/SKILL.md` and its linked style guide first. It records the agreed company-first, single-window, trackpad-first design rules. Reuse this baseline rather than inventing a new style each turn. Latest explicit user feedback takes precedence. The guide is a baseline, not a claim that current pages passed visual review.

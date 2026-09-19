@@ -33,7 +33,7 @@ def workbench_page(area):
 
 def add_navigation(page):
     header = '<nav id="site-navigation" aria-label="Global navigation"><a class="site-brand" href="/">Uteki</a><a href="/" data-global-page="home"><span lang="zh">主页</span><span lang="en">Home</span></a><a href="/companies" data-global-page="companies"><span lang="zh">公司</span><span lang="en">Companies</span></a></nav>'
-    header += """<script>document.addEventListener('DOMContentLoaded',()=>{const key=location.pathname==='/'?'home':'companies';document.querySelector('[data-global-page="'+key+'"]')?.setAttribute('aria-current','page')});</script>"""
+    header += """<script>document.addEventListener('DOMContentLoaded',()=>{const key=location.pathname==='/'?'home':'companies';document.querySelector('[data-global-page="'+key+'"]')?.setAttribute('aria-current','page');const nav=document.getElementById('site-navigation');let queued=false;document.addEventListener('scroll',event=>{const target=event.target;const y=target===document?window.scrollY:target.scrollTop||0;if(queued)return;queued=true;requestAnimationFrame(()=>{nav.classList.toggle('is-compact',y>28);queued=false})},{capture:true,passive:true})});</script>"""
     match = re.search(r'<body\b[^>]*>', page, re.I)
     if not match: return page
     return page[:match.end()] + header + page[match.end():]

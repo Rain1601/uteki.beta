@@ -35,7 +35,7 @@ class CompanyUniverseTests(unittest.TestCase):
     def test_page_renders_filters_bilingual_copy_and_alphabet_link(self) -> None:
         page = render_company_universe_page(self.data)
         self.assertIn("公司观察池", page)
-        self.assertIn("Landmark companies", page)
+        self.assertIn("Companies", page)
         self.assertIn("data-value='nasdaq100'", page)
         self.assertIn("data-value='core'", page)
         self.assertIn("value='unknown'", page)
@@ -44,9 +44,11 @@ class CompanyUniverseTests(unittest.TestCase):
         self.assertNotIn("href='/document-index'", page)
         self.assertEqual(page.count("class='company-row'"), 50)
         self.assertNotIn("theme-divider", page)
-        self.assertIn("id='page-size'", page)
-        self.assertIn("id='previous'", page)
-        self.assertIn("id='next'", page)
+        self.assertIn("class='company-sources'", page)
+        self.assertNotIn("class='topbar'", page)
+        self.assertNotIn("id='page-size'", page)
+        self.assertNotIn("id='previous'", page)
+        self.assertNotIn("id='next'", page)
 
 
 if __name__ == "__main__":

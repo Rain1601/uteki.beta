@@ -22,9 +22,9 @@ def recorded_time(value):
         return None
 
 
-def attention_model(universe, rows, now=None):
+def attention_model(universe, rows, now=None, history=False):
     now = (now or datetime.now(ZONE)).astimezone(ZONE)
-    cutoff = now - timedelta(days=7)
+    cutoff = datetime.min.replace(tzinfo=ZONE) if history else now - timedelta(days=7)
     companies = universe['companies']
     by_company = {c['id']: [] for c in companies}
     for row in rows:
@@ -94,7 +94,7 @@ def attention_row(item, day, checkable=True):
     return row+'</div></article>'
 
 
-def render_dashboard(universe, rows, now=None):
+def render_legacy_dashboard(universe, rows, now=None):
     model = attention_model(universe, rows, now)
     body = '<div class="dashboard-heading"><div><p class="muted">'+e(model['day'])+' · '+bi('北京时间', 'Beijing time')+'</p><h1>'+bi('今天关注什么', 'Where to focus today')+'</h1><p>'+bi('从待审核报告和研究更新开始，再回到重点公司。', 'Start with pending reports and research updates, then return to priority companies.')+'</p></div><a href="/companies">'+bi('浏览全部公司', 'Browse all companies')+'</a></div>'
     body += '<div class="attention-layout"><section class="attention-queue"><div class="section-heading"><h2>'+bi('今日关注', 'Today’s focus')+'</h2><label class="quiet-control"><input type="checkbox" id="only-unread">'+bi('仅看未查看', 'Hide viewed')+'</label></div><p class="muted">'+bi('按待审核、研究更新和已有重点标记排列。查看标记仅保存在本机，不代表报告已审核。', 'Ordered by pending review, research updates and core priority. View marks stay in this browser and do not approve reports.')+'</p>'
@@ -132,3 +132,8 @@ JS = '''document.addEventListener('DOMContentLoaded',()=>{
 CSS = '''
 .dashboard-heading{display:flex;justify-content:space-between;align-items:center;gap:28px;margin:4px 0 34px}.dashboard-heading h1{margin:2px 0 8px}.dashboard-heading p{margin:4px 0;max-width:65ch}.dashboard-heading>a{white-space:nowrap}.attention-layout{display:grid;grid-template-columns:minmax(0,1fr) 285px;gap:44px}.attention-queue>.section-heading{margin-top:0}.attention-queue>.section-heading h2,.attention-updates>h2:first-child{margin-top:0}.attention-queue>.muted,.attention-updates>.muted{font-size:13px;line-height:1.7}.quiet-control{font-size:12px;color:#596779;white-space:nowrap}.attention-row{display:grid;grid-template-columns:minmax(135px,1fr) minmax(170px,1.1fr) 96px;gap:18px;align-items:center;border-bottom:1px solid #e1e7ef;padding:19px 0}.attention-company a{color:#202b3b}.attention-company small,.attention-reason small{color:#596779;font-size:12px;margin-top:4px}.attention-reason{font-size:13px}.attention-actions{font-size:13px}.attention-actions label{display:flex;gap:3px;align-items:center;margin-top:8px;font-size:11px;color:#596779;white-space:nowrap}.attention-row.viewed .attention-company strong{font-weight:400;color:#596779}.attention-updates{border-left:1px solid #e1e7ef;padding-left:28px}.update-feed article{padding:13px 0;border-bottom:1px solid #e1e7ef}.update-feed time{font-size:12px;color:#596779}.update-feed p{font-size:13px;margin:4px 0}.update-feed small{font-size:12px;color:#596779;margin-top:3px}.observe-list{margin-top:30px}.observe-list summary{font-size:19px;font-weight:600;cursor:pointer;padding:12px 0}.observe-list>p{font-size:13px}.dashboard-source{font-size:12px;color:#596779;margin-top:30px}.attention-updates h2{font-size:18px}.attention-actions input,.quiet-control input{accent-color:#275dad}@media(max-width:1000px){.attention-layout{grid-template-columns:1fr}.attention-updates{border-left:0;padding-left:0;border-top:1px solid #e1e7ef;padding-top:24px}.update-feed{display:grid;grid-template-columns:repeat(2,1fr);gap:0 25px}}@media(max-width:580px){.dashboard-heading{display:block}.dashboard-heading>a{display:inline-block;margin-top:14px}.attention-row{grid-template-columns:minmax(0,1fr) 96px;gap:8px 15px}.attention-company{grid-column:1}.attention-reason{grid-column:1}.attention-actions{grid-column:2;grid-row:1/3}.update-feed{grid-template-columns:1fr}.quiet-control{font-size:11px}}
 '''
+
+
+def render_dashboard(universe, rows, now=None):
+    from apps.review_workbench.home_cards import render_home
+    return render_home(universe, rows, now)

@@ -59,9 +59,29 @@ class AttentionTests(unittest.TestCase):
         report=row(title='A report',question='What changed?')
         body=render_dashboard(self.universe,[report],NOW)
         self.assertIn('今天关注什么',body)
-        self.assertIn('data-daily-check="2026-09-18:alphabet:',body)
+        self.assertIn('data-read-key=',body)
+        self.assertIn('hc-grid',body)
+        self.assertNotIn('role="dialog"',body)
         self.assertIn('/companies/alphabet/reports/r1',body)
         self.assertIn('不代表行情',body)
         detail=render_company_overview(self.universe['companies'][0],[report],{'documents':[]})
         self.assertLess(detail.index('class="featured-report"'),detail.index('class="research-support"'))
         self.assertIn('阅读与编辑报告',detail)
+
+class HomeHistoryTests(unittest.TestCase):
+    def test_history_includes_old_records_but_not_future_or_deleted(self):
+        universe={'companies':[company('alphabet')]}
+        old=row('old'); old['created_at']='2026-01-01T00:00:00+00:00'
+        future=row('future'); future['created_at']='2027-01-01T00:00:00+00:00'
+        deleted=row('deleted'); deleted['status']='deleted'
+        model=attention_model(universe,[old,future,deleted],NOW,history=True)
+        self.assertEqual([x['report']['id'] for x in model['updates']],['old'])
+
+    def test_preview_escapes_content_and_keeps_status(self):
+        universe={'companies':[company('alphabet')]}
+        report=row(title='<script>unsafe</script>',answer={'text':'<img src=x onerror=alert(1)>'})
+        body=render_dashboard(universe,[report],NOW)
+        self.assertNotIn('<script>unsafe</script>',body)
+        self.assertIn('&lt;img',body)
+        self.assertIn('待审核',body)
+        self.assertIn('尚未接入持仓',body)
