@@ -498,3 +498,8 @@ Read the local uteki research-exoskeleton mock styles and production company wor
 The maintained interface baseline is [Uteki interface style guide](../skills/uteki-interface/references/style-guide.md), loaded by [the reusable skill](../skills/uteki-interface/SKILL.md) and repository AGENTS.md. Historical notes above are implementation history; the maintained guide and latest user requests govern future decisions.
 
 Home hover now reserves two lines for the excerpt, avoiding height changes and row displacement. Mouse focus does not leave a focus ring; keyboard focus remains visible. Only a subtle background/opacity change remains. This is not final visual approval.
+
+
+## System-wide interface consolidation
+
+The shared style guide now has an implementation token file: `apps/review_workbench/design_tokens.css`. Theme injection loads it before component styles. Company/research/home color forks are removed or mapped to shared tokens; retired homepage renderer and early company universe styling removed. Company detail headings, report rails/body spacing, source/data tables and shared controls are consolidated. All original snapshot, citation, review and edit behavior is retained. See [interface review matrix](INTERFACE_REVIEW.md). Browser visual review is still pending under current access policy; automated tests do not constitute visual approval.

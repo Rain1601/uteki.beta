@@ -9,7 +9,7 @@ def theme_html(page: str, area: str) -> str:
         return page
     if not re.fullmatch(r'[a-z-]+', area):
         raise ValueError('Invalid workbench area')
-    style = '<style id="uteki-visual-system">' + Path(__file__).with_name('visual_system.css').read_text() + '</style>'
+    style = '<style id="uteki-visual-system">' + Path(__file__).with_name('design_tokens.css').read_text() + '\n' + Path(__file__).with_name('visual_system.css').read_text() + '</style>'
     if re.search(r'<body\b', page, re.I):
         page = re.sub(r'<body\b', f'<body data-workbench="{area}"', page, count=1, flags=re.I)
         # Some older templates omit head tags. Insert before their body as well.
