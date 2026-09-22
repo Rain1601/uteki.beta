@@ -12,6 +12,8 @@ Product planning: [long-term roadmap](docs/ROADMAP.zh-CN.md),
 [release acceptance record](docs/releases/ACCEPTANCE_TEMPLATE.zh-CN.md).
 These plans preserve the active M0 scope and do not imply milestone acceptance.
 
+Next development steps and cross-machine handoff: [development TODO](TODO.md).
+
 Investment governance: [investment and evaluation charter](docs/INVESTMENT_EVALUATION_CHARTER.zh-CN.md)
 and [quarterly review template](docs/INVESTMENT_REVIEW_TEMPLATE.zh-CN.md).
 Review quarterly, attribute annually, and assess the strategy over rolling 3–5
@@ -72,9 +74,9 @@ Open `http://127.0.0.1:8765/`. Startup now checks required inputs before
 creating review state or starting the server. Use `--check` for a read-only
 preflight. Full local regression remains available with
 `.venv/bin/python scripts/run_offline_checks.py --integration`.
-This code update does not publish the local source library or recorded
-experiments. The full offline regression suite and populated workbench require
-those local datasets; a fresh clone is not a preloaded research workspace.
+Selected public-source materials, indexes, Data Agent snapshots and saved query
+runs are now included in Git. Other local datasets may still be required for
+the full historical workspace; use the workspace check to identify actual gaps.
 Credentials, personal review state, run budgets, generated translations/exports
 and temporary files also stay local. Research coverage and
 review status remain explicit; this interface does not imply milestone

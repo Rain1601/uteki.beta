@@ -2,24 +2,24 @@
 
 ## 当前交付状态
 
-此仓库提供应用代码、测试、一个 v0.1 Business Map 候选及部分真实来源摘录。原开发环境的公司名单、完整材料、研究数据发布、报告实验和审核记录没有完整提交。2026-09-18 接手时，这些资料暂时无法取得。
+2026-09-22 更新：仓库已包含公司名单、部分完整公开材料与索引、研究数据发布，以及 Data Agent 查询快照和历史样例。后续开发顺序、已知边界和换机器交接见 [开发待办](../TODO.md)。凭据、费用账本和含本机路径的运行元数据不随 Git 同步。
 
-新环境可以运行离线核心检查及一条真实候选证据的隔离流程演练。完整工作台及历史研究报告仍需恢复下列资料。离线检查通过不代表 M0 验收、完整年报核验、模型质量达标或历史人工审核已恢复。
+2026-09-18 接手时部分资料尚未取得；下文保留恢复方法供实际缺失时使用，不表示列出的文件现在都缺失。新环境先运行工作区检查确认本次检出的状态。离线检查通过不代表 M0 验收、完整年报核验、模型质量达标或历史人工审核已恢复。
 
 ## 从新检出仓库开始
 
 要求 Python 3.11+、Node.js 20+，运行环境为 macOS 或 Linux。归档存储使用 POSIX 文件锁。
 
 ```bash
-uv sync --locked --extra analysis
+uv sync --locked --extra analysis --extra data
 .venv/bin/python scripts/run_offline_checks.py
 .venv/bin/python scripts/smoke_research_workflow.py
 .venv/bin/python scripts/check_workspace.py
 ```
 
-依赖安装可能联网；后三个命令不请求模型、不下载资料、不需要 API 密钥。测试和流程演练只向临时目录写审核状态。`analysis` 扩展用于离线假模型及报告契约测试；实际工作台解析依赖仍只有 `lxml`。
+依赖安装可能联网；后三个命令不请求模型、不下载资料、不需要 API 密钥。测试和流程演练只向临时目录写审核状态。`analysis` 扩展用于离线假模型及报告契约测试；`data` 扩展提供 DuckDB/Pydantic，供新查询和数据库明细页面使用。
 
-`check_workspace.py` 在资料缺失时返回 **2**，同时列出必需文件和可选功能缺口。这个结果是当前公开检出的预期状态。可用 `--json` 获取结构化清单，或 `--root /path/to/recovered-checkout` 只读检查另一份候选工作区。检查会核对研究发布清单里的文件指纹、材料索引指纹和原文整体指纹；它不替代真实页面验收。
+`check_workspace.py` 在资料缺失时返回 **2**，同时列出必需文件和可选功能缺口；以实际输出为准，不预设新检出一定失败。可用 `--json` 获取结构化清单，或 `--root /path/to/recovered-checkout` 只读检查另一份候选工作区。检查会核对研究发布清单里的文件指纹、材料索引指纹和原文整体指纹；它不替代真实页面验收。
 
 资料恢复后启动：
 
@@ -32,7 +32,7 @@ PYTHONPATH=src:. .venv/bin/python -m apps.review_workbench.app --host 127.0.0.1 
 
 完整本地回归的命令和覆盖边界见 [OFFLINE_TESTS.md](OFFLINE_TESTS.md)。`scripts/run_offline_checks.py --integration` 保留原测试失败与跳过结果，不会用占位资料补齐历史实验。
 
-## 待恢复文件
+## 资料清单与恢复方式
 
 路径均相对仓库根目录。恢复已有文件时保留原字节、版本目录、清单和审核记录，不重新赋予 frozen/adopted 状态。
 
@@ -52,7 +52,9 @@ PYTHONPATH=src:. .venv/bin/python -m apps.review_workbench.app --host 127.0.0.1 
 
 恢复后依次确认：主页 → Alphabet 概览 → 材料目录及原文 → 业务图及引用 → 报告及历史。真实人工采纳仍由研究者执行；离线演练的模拟采纳不会被导入。
 
-## 能重建什么，不能重建什么
+## 历史恢复边界（2026-09-18 记录）
+
+以下记录当时缺失输入带来的限制；部分输入现已提交，当前是否具备构建条件须检查实际文件及其指纹。已存在的产物不可覆盖，新构建使用显式配置和新目录。
 
 - `build_alphabet_business_benchmark_v0_2.py` 可从已提交的 v0.1 候选生成后续候选文件，但不产生人工审核决定。
 - `build_business_map_v03_candidate.py` 需要缺失的 v0.2 `review_decisions.json`。不能用空决定文件声称已还原原审核。
