@@ -5,6 +5,9 @@ import json
 import re
 from pathlib import Path
 from typing import Any
+from decimal import Decimal
+
+from .adapters.legacy_alphabet import require_legacy_alphabet_source
 
 
 SCHEMA_VERSION = "evidence-bundle-v0.1"
@@ -29,7 +32,7 @@ def _metric_from_claim(claim: dict[str, Any]) -> dict[str, Any]:
     match = re.fullmatch(r"\$(\d+(?:\.\d+)?)B(?: loss)?", claim["value_en"])
     if match is None:
         raise ValueError(f"unsupported metric value: {claim['id']}={claim['value_en']}")
-    value = round(float(match.group(1)) * 1000)
+    value = round(Decimal(match.group(1)) * 1000)
     if claim["field"].startswith("operating_loss"):
         value = -value
     metric = claim["field"].removesuffix("_2025")
@@ -52,8 +55,14 @@ def build_research_data_artifacts(
     document_snapshot_dir: Path,
     output_dir: Path,
     *,
+    adapter_id: str,
     generated_at: str,
 ) -> dict[str, Any]:
+    """Historical adapter only; new data should use explicit query build specs."""
+    if adapter_id != "alphabet-fy2025-business-map-v1":
+        raise ValueError("unsupported legacy business-map adapter")
+    if output_dir.exists():
+        raise FileExistsError("release exists; build a new immutable release directory")
     business_map_path = benchmark_dir / "business_map.json"
     claims_path = benchmark_dir / "claims.json"
     spans_path = benchmark_dir / "evidence_spans.json"
@@ -67,6 +76,9 @@ def build_research_data_artifacts(
     decisions = _read_json(decisions_path)
     index_manifest = _read_json(index_manifest_path)
     source_manifest = _read_json(source_manifest_path)
+    require_legacy_alphabet_source(source_manifest)
+    if business_map["company_id"] != "alphabet":
+        raise ValueError("legacy Alphabet adapter company mismatch")
 
     source_snapshot_id = source_manifest["source_snapshot_id"]
     if claims_document["source_snapshot_id"] != source_snapshot_id:

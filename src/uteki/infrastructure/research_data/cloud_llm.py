@@ -7,6 +7,7 @@ from pathlib import Path
 from lxml import html
 
 from .cloud_spike import digest, encoded
+from .adapters.legacy_alphabet import require_legacy_alphabet_source
 
 VERSION = "cloud-llm-v0.1"
 VALIDATOR_VERSION = "cloud-source-validator-v0.2"
@@ -36,6 +37,7 @@ def prepare(source_dir: Path):
     raw = gzip.decompress((source_dir / "source.html.gz").read_bytes())
     if digest(raw) != manifest["content_sha256"]:
         raise ValueError("source hash mismatch")
+    require_legacy_alphabet_source(manifest)
     folder = source_dir / "indexes/v0.1"
     im = json.loads((folder / "manifest.json").read_text())
     for name, info in im["artifacts"].items():
@@ -89,6 +91,9 @@ def prepare(source_dir: Path):
 
 def materialize(output, bundle, manifest, by_id):
     """Reject unsupported citations; never silently correct model output."""
+    require_legacy_alphabet_source(manifest)
+    if bundle["source_sha256"] != manifest["content_sha256"] or bundle["source_snapshot_id"] != manifest["source_snapshot_id"]:
+        raise ValueError("legacy source/bundle mismatch")
     if not isinstance(output, dict) or not isinstance(output.get("facts"), list) or not output["facts"]:
         raise ValueError("empty or malformed facts")
     if not isinstance(output.get("unknowns"), list):

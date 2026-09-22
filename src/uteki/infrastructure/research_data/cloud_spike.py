@@ -14,6 +14,7 @@ from datetime import date
 from pathlib import Path
 
 from lxml import html
+from .adapters.legacy_alphabet import require_legacy_alphabet_source
 
 VERSION = "cloud-source-rules-v0.1"
 
@@ -31,6 +32,7 @@ def extract(source_dir: Path) -> dict:
     raw = gzip.decompress((source_dir / "source.html.gz").read_bytes())
     if digest(raw) != manifest["content_sha256"]:
         raise ValueError("source hash mismatch")
+    require_legacy_alphabet_source(manifest)
     index_dir = source_dir / "indexes/v0.1"
     index_manifest = json.loads((index_dir / "manifest.json").read_text())
     for name, expected in index_manifest["artifacts"].items():

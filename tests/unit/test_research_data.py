@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 import tempfile
 import unittest
 from pathlib import Path
@@ -21,6 +22,18 @@ GENERATED_AT = "2026-09-13T01:34:55+08:00"
 
 
 class EvidenceBundleTests(unittest.TestCase):
+    def test_legacy_adapter_requires_scope_and_refuses_existing_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / 'new'
+            with self.assertRaises(TypeError):
+                build_research_data_artifacts(BENCHMARK, DOCUMENT, output, generated_at=GENERATED_AT)
+            with self.assertRaisesRegex(ValueError, 'unsupported legacy'):
+                build_research_data_artifacts(BENCHMARK, DOCUMENT, output, adapter_id='other', generated_at=GENERATED_AT)
+            output.mkdir()
+            with self.assertRaises(FileExistsError):
+                build_research_data_artifacts(BENCHMARK, DOCUMENT, output,
+                    adapter_id='alphabet-fy2025-business-map-v1', generated_at=GENERATED_AT)
+
     def test_previous_candidate_bundle_remains_unchanged(self) -> None:
         payload = json.loads((LEGACY_RELEASE / "evidence_bundle.json").read_text(encoding="utf-8"))
         bundle = evidence_bundle_from_dict(payload)
@@ -54,8 +67,8 @@ class EvidenceBundleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
             one = Path(first) / "v0.2-candidate"
             two = Path(second) / "v0.2-candidate"
-            build_research_data_artifacts(BENCHMARK, DOCUMENT, one, generated_at=GENERATED_AT)
-            build_research_data_artifacts(BENCHMARK, DOCUMENT, two, generated_at=GENERATED_AT)
+            build_research_data_artifacts(BENCHMARK, DOCUMENT, one, adapter_id="alphabet-fy2025-business-map-v1", generated_at=GENERATED_AT)
+            build_research_data_artifacts(BENCHMARK, DOCUMENT, two, adapter_id="alphabet-fy2025-business-map-v1", generated_at=GENERATED_AT)
             for filename in ("manifest.json", "query.json", "business_map.json", "evidence_bundle.json"):
                 self.assertEqual((one / filename).read_bytes(), (two / filename).read_bytes())
                 self.assertEqual((one / filename).read_bytes(), (RELEASE / filename).read_bytes())
@@ -66,7 +79,7 @@ class EvidenceBundleTests(unittest.TestCase):
                 LEGACY_BENCHMARK,
                 DOCUMENT,
                 legacy,
-                generated_at=LEGACY_GENERATED_AT,
+                adapter_id="alphabet-fy2025-business-map-v1", generated_at=LEGACY_GENERATED_AT,
             )
             for filename in ("manifest.json", "query.json", "business_map.json", "evidence_bundle.json"):
                 self.assertEqual((legacy / filename).read_bytes(), (LEGACY_RELEASE / filename).read_bytes())
@@ -132,11 +145,14 @@ class LocalResearchDataPortTests(unittest.TestCase):
         )
         with self.assertRaises(FileExistsError):
             self.port.request_missing_data(changed)
+        for unsafe in ("../escape", "/tmp/escape", " "):
+            with self.subTest(unsafe=unsafe), self.assertRaises(ValueError):
+                self.port.request_missing_data(replace(request, request_id=unsafe))
 
     def test_manifest_integrity_failure_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             release = Path(temporary) / "v0.1-candidate"
-            build_research_data_artifacts(BENCHMARK, DOCUMENT, release, generated_at=GENERATED_AT)
+            build_research_data_artifacts(BENCHMARK, DOCUMENT, release, adapter_id="alphabet-fy2025-business-map-v1", generated_at=GENERATED_AT)
             with (release / "query.json").open("a", encoding="utf-8") as target:
                 target.write(" ")
             with self.assertRaisesRegex(ResearchDataIntegrityError, "integrity check"):

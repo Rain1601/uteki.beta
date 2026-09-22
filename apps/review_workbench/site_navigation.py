@@ -15,11 +15,14 @@ def bi(zh,en):
     return '<span lang="zh">'+e(zh)+'</span><span lang="en">'+e(en)+'</span>'
 
 
-def company_tabs(company_id, active='overview'):
+def company_tabs(company_id, active='reports'):
     base='/companies/'+quote(company_id,safe='')
+    # The company landing page and report URLs share one research workspace.
+    if active == 'overview':
+        active = 'reports'
     return '<nav class="company-tabs" aria-label="Company sections">'+''.join(
         '<a '+('aria-current="page" ' if key==active else '')+'href="'+base+suffix+'">'+bi(zh,en)+'</a>'
-        for key,suffix,zh,en in [('overview','','研究详情','Research'),('reports','/reports','分析报告','Reports'),('materials','/materials','原始材料','Materials'),('data','/data','结构化数据','Structured data')])+'</nav>'
+        for key,suffix,zh,en in [('reports','/reports','分析报告','Reports'),('materials','/materials','原始材料','Materials'),('data','/data','结构化数据','Structured data')])+'</nav>'
 
 
 def crumb(company=None, section=None):
@@ -96,8 +99,10 @@ def render_materials(company,catalog,reading):
     return page('材料库',body)
 
 
-def render_structured(company,bundle):
+def render_structured(company,bundle, *, query_views=False):
     body=crumb(company,('结构化数据','Structured data'))+company_tabs(company['id'],'data')+'<div class="workspace-heading"><h1>'+bi('结构化数据','Structured research data')+'</h1><p>'+bi('财务指标与业务结构，每项数据保留出处。','Financial metrics and business structure, with evidence retained.')+'</p></div>'
+    if query_views:
+        body += '<div class="section-heading"><h2>' + bi('查询与结果','Queries & results') + '</h2><a href="/companies/' + quote(company['id'],safe='') + '/data/queries">' + bi('查看问题、SQL 与取数结果','View questions, SQL & returned data') + '</a></div><p class="muted">' + bi('已保存的查询运行，可逐步核对 SQL、数值与原文证据。','Saved query runs with SQL, values and source evidence at each step.') + '</p>'
     if not bundle:
         return page('结构化数据',body+'<p>'+bi('此公司尚未生成结构化研究数据。','No structured research data for this company yet.')+'</p>')
     body+='<p class="coverage-note">'+bi('当前覆盖 FY2025；候选数据待审核。季度原文已采集，不代表季度指标已整理完成。','FY2025 coverage; candidate data awaits review. Collected quarterly sources do not imply extracted quarterly metrics.')+'</p><div class="section-heading"><h2>'+bi('业务结构','Business structure')+'</h2><a href="/companies/alphabet/data/business-map">'+bi('查看业务图与证据','Business map & evidence')+'</a></div><h2>'+bi('财务指标','Financial metrics')+'</h2><div class="workspace-table"><table><thead><tr>'+''.join('<th>'+bi(*x)+'</th>' for x in [('业务','Business'),('指标','Metric'),('期间','Period'),('数值（百万美元）','Value (USD millions)'),('出处','Evidence')])+'</tr></thead><tbody>'

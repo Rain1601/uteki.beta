@@ -527,7 +527,27 @@ def make_handler(data_path: Path, archive_path: Path | None = None):
                         self.send_error(404, 'Unknown PDF'); return True
                     send(target.read_bytes(), 'application/pdf')
             elif section == 'data':
-                send(render_structured(company, bundle))
+                from apps.review_workbench.query_runs import collections
+                send(render_structured(company, bundle, query_views=bool(collections(ROOT / 'data/query_views', company['id']))))
+            elif section == 'data/queries':
+                from apps.review_workbench.query_runs import render_query_runs
+                try:
+                    keys = ('collection', 'run', 'case')
+                    selection = {key: query[key][0] for key in keys} if query else None
+                    send(render_query_runs(ROOT, ROOT / 'data/query_views', company, selection))
+                except KeyError:
+                    self.send_error(404, 'Unknown saved query selection')
+                except (OSError, ValueError):
+                    self.send_error(503, 'Saved query artifacts unavailable or changed')
+            elif section == 'data/dataset':
+                from apps.review_workbench.dataset_view import render_dataset
+                try:
+                    send(render_dataset(ROOT, ROOT / 'data/query_views', company,
+                                        query['collection'][0], query.get('record', [None])[0]))
+                except KeyError:
+                    self.send_error(404, 'Unknown company dataset or record')
+                except (OSError, ValueError):
+                    self.send_error(503, 'Dataset artifacts unavailable or changed')
             elif section == 'data/business-map' and company['id'] == 'alphabet':
                 page = render_result_page(load_json(data_path), load_json(SOURCE_EXCERPT),
                     query.get('selected', [None])[0], bundle=bundle,

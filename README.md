@@ -80,6 +80,27 @@ and temporary files also stay local. Research coverage and
 review status remain explicit; this interface does not imply milestone
 acceptance or completed coverage of every watchlist company.
 
+## Local Data Agent query pilot
+
+The [query pilot report](docs/DATA_AGENT_QUERY_PILOT_REPORT.zh-CN.md) links the
+versioned schema, coverage catalog, SQL traces, financial calculations, and
+document evidence. It uses four frozen Alphabet sources and candidate records.
+Agent clients can discover the schema and submit typed query plans through the
+same Python/JSON CLI interface. Autonomous natural-language planning, OCR, and
+external acquisition were outside that original pilot. The subsequent
+[natural-language canary report](docs/DATA_AGENT_NL_CANARY_REPORT.zh-CN.md)
+records the implemented planner/tool loop, two live DeepSeek runs, fixes, costs,
+and the remaining acceptance failures. Broader rollout, OCR, and external
+acquisition remain future work.
+
+Install the optional query dependencies with
+`uv sync --locked --extra analysis --extra data`. With the pilot data restored:
+
+```bash
+.venv/bin/python scripts/query_research_data.py schema \
+  --dataset experiments/data_agent_query/2026-09-22-pilot-04/dataset
+```
+
 ## End state
 
 1. **Research Outcome** — a defensible thesis, drivers, evidence, risks,
@@ -178,6 +199,10 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 PYTHONPATH=src python3 scripts/build_document_index.py
 
 PYTHONPATH=src python3 scripts/build_research_data_bundle.py \
+  --adapter alphabet-fy2025-business-map-v1 \
+  --benchmark benchmarks/alphabet_2025_business_map/v0.3-candidate \
+  --source data/source_documents/alphabet_2025_10k \
+  --destination /tmp/uteki-research-data-new \
   --generated-at 2026-09-13T01:34:55+08:00
 ```
 

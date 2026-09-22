@@ -1,0 +1,10 @@
+{
+  "case": "F1",
+  "arm": "control",
+  "repeat": 1,
+  "folder": "F1-control-1",
+  "status": "candidate",
+  "record_count": 8,
+  "validation_errors": [],
+  "semantic_review": "pending"
+}

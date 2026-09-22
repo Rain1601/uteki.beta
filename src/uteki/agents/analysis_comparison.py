@@ -169,6 +169,10 @@ class ToolSession:
 def model_adapter(model, provider):
     if provider == 'openai':
         return model
+    if provider == 'deepseek':
+        from uteki.agents.deepseek_model import BASE_URL, DeepSeekChatCompletionsModel
+        return DeepSeekChatCompletionsModel(model=model, openai_client=AsyncOpenAI(
+            api_key=os.environ['DEEPSEEK_API_KEY'], base_url=BASE_URL, timeout=60, max_retries=0))
     if provider != 'aihubmix':
         raise ValueError('Unknown provider')
     return OpenAIChatCompletionsModel(model=model,openai_client=AsyncOpenAI(

@@ -1,0 +1,8 @@
+{
+  "case": "A2",
+  "arm": "after",
+  "repeat": 1,
+  "status": "failed",
+  "error_type": "APIConnectionError",
+  "http_status": null
+}

@@ -12,6 +12,16 @@ from agents.models.interface import Model
 
 
 def pricing_snapshot(provider, model):
+    if provider == 'deepseek' and model in ('deepseek-flash', 'deepseek-v4-pro'):
+        rates = {'deepseek-flash': ('0.30', '1.20', '0.006'),
+                 'deepseek-v4-pro': ('1.32', '3.96', '0.044')}
+        input_rate, output_rate, cached_rate = rates[model]
+        return {'provider': provider, 'model': model, 'currency': 'USD',
+                'input_per_million': input_rate, 'output_per_million': output_rate,
+                'cached_input_per_million': cached_rate,
+                'source': 'https://api-docs.deepseek.com/quick_start/pricing',
+                'checked_on': '2026-09-22',
+                'basis': 'Peak list price estimate; no cache or off-peak discounts applied'}
     if (provider, model) != ('aihubmix', 'gpt-5.4-mini'):
         return None
     return {'provider': provider, 'model': model, 'currency': 'USD',
@@ -76,6 +86,25 @@ class MeteredModel(Model):
                           http_status=getattr(exc, 'status_code', None))
             raise
         finally:
+            if self.provider == 'deepseek':
+                metadata = getattr(self.inner, 'response_metadata', None)
+                if metadata:
+                    record.update(metadata)
+                raw = (metadata or {}).get('raw_usage') or {}
+                # A failed/truncated answer may still have billable usage. A
+                # missing/malformed usage object must not settle at SDK zeros.
+                counters = (raw.get('prompt_tokens'), raw.get('completion_tokens'))
+                if all(type(n) is int and n >= 0 for n in counters):
+                    record['usage'] = {
+                        'input_tokens': counters[0], 'output_tokens': counters[1],
+                        'total_tokens': raw.get('total_tokens'),
+                        'input_tokens_details': raw.get('prompt_tokens_details') or {
+                            'cached_tokens': raw.get('prompt_cache_hit_tokens')},
+                        'output_tokens_details': raw.get('completion_tokens_details'),
+                    }
+                    record['estimated_usd'] = estimate(record['usage'], self.pricing)
+                else:
+                    record.update(usage=None, estimated_usd=None)
             record.update(ended_at=datetime.now(timezone.utc).isoformat(),
                           elapsed_seconds=time.monotonic()-started)
             write_record(self.folder/(call_id+'-end.json'), record)

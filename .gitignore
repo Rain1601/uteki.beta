@@ -25,3 +25,13 @@ data/research_archive/*
 /data/reading_library/**/*.zip
 /data/reading_library/alphabet/translations/
 /docs/VIC_ALPHABET_APPLICATION_DRAFT.md
+
+# Local execution metadata can contain workstation paths or budget locations.
+# Keep original frozen records locally; do not rewrite their integrity hashes.
+/experiments/data_agent_query/**/preflight.json
+/experiments/**/budget.sqlite
+/experiments/**/*-budget.sqlite
+/experiments/research_data_quality/*-prompt-run-*/manifest.json
+/experiments/research_data_quality/*-visualization-review.json
+/experiments/research_data_quality/*-run-audit.json
+/docs/releases/V0_2_R2A_REPLAY*.json

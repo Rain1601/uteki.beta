@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -148,12 +149,17 @@ class LocalResearchDataPort:
         self._require_company(request.company_id)
         if request.status != "requested":
             raise ValueError("a new ResearchDataRequest must have status=requested")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,119}", request.request_id):
+            raise ValueError("request_id must be a safe identifier, not a file path")
         self.request_dir.mkdir(parents=True, exist_ok=True)
         target = self.request_dir / f"{request.request_id}.json"
         content = _json_bytes(asdict(request))
-        if target.exists() and target.read_bytes() != content:
-            raise FileExistsError(f"request id already exists with different content: {request.request_id}")
-        target.write_bytes(content)
+        try:
+            with target.open("xb") as stream:
+                stream.write(content)
+        except FileExistsError:
+            if target.is_symlink() or target.read_bytes() != content:
+                raise FileExistsError(f"request id already exists with different content: {request.request_id}")
         return request
 
     def _require_company(self, company_id: str) -> None:
