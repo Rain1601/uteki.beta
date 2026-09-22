@@ -43,3 +43,22 @@ class BlockReviewTests(unittest.TestCase):
     def test_table_units_match_renderer(self):
         blocks=review_blocks({'report_markdown':'| A | B |\n|---|---|\n| 1 | 2 |'})
         self.assertEqual(set(blocks),{'md:0:0','md:0:1','md:2:0','md:2:1'})
+
+    def test_rejection_persists_can_switch_and_edit_invalidates(self):
+        key='md:2'; h=review_blocks(self.answer)[key]
+        row=self.store.act('a','reject_block',1,block_id=key,block_hash=h)['snapshot']
+        self.assertEqual(Store(self.path).list()[0]['block_decisions'][key]['decision'],'rejected')
+        self.assertFalse(row['block_decisions'][key]['accepted'])
+        with self.assertRaises(ConflictError):self.store.act('a','reject_block',1,block_id=key,block_hash=h)
+        row=self.accept(key,2)
+        self.assertEqual(row['block_decisions'][key]['decision'],'accepted')
+        row=self.store.act('a','reject_block',3,block_id=key,block_hash=h)['snapshot']
+        revised=self.store.act('a','edit',4,answer={'report_markdown':'# Title\n\nChanged\nSecond'},human_notes='Fix rejected statement')['snapshot']
+        self.assertNotIn(key,revised['block_decisions'])
+        self.assertEqual(revised['edit_diff']['answer']['before'],self.answer)
+        self.assertEqual(Store(self.path).list()[0]['block_review_events'][-1]['decision'],'rejected')
+
+    def test_old_undo_is_not_rejection(self):
+        self.accept('md:2',1)
+        row=self.store.act('a','unaccept_block',2,block_id='md:2',block_hash=review_blocks(self.answer)['md:2'])['snapshot']
+        self.assertEqual(row['block_decisions']['md:2']['decision'],'pending')

@@ -67,7 +67,7 @@ def _list(values):
 
 
 STATUS = {
-    "candidate": ("未采纳", "Candidate"), "draft": ("未采纳", "Candidate"),
+    "candidate": ("待批阅", "Pending review"), "draft": ("待批阅", "Pending review"),
     "adopted": ("已采纳", "Adopted"), "archived": ("已归档", "Archived"),
     "deleted": ("已删除", "Deleted"), "rejected": ("已拒绝", "Rejected"),
 }
@@ -202,7 +202,7 @@ def render_archive(company, snapshots, selected_id=None, documents=None, researc
         short_question = question.split('？', 1)[0] + '？' if '？' in question else question.splitlines()[0] if question else ''
         heading = e(short_question[:120]) if short_question else scope_title
         mode_label = '<span class="badge">' + e(s.get("mode", "")) + '</span>' if s.get("mode") else ''
-        header = '<div class="detail-heading" id="analysis-report"><div><div class="eyebrow">' + scope_title + '</div><h1>' + heading + '</h1><div class="report-state">' + mode_label + _badge(status) + '</div></div></div>'
+        header = '<div class="detail-heading" id="analysis-report"><div><div class="eyebrow">' + scope_title + '</div><h1>' + heading + '</h1><div class="report-state">' + mode_label + '</div></div></div>'
         date_only = s.get("material_time_precision") == "date"
         meta = '<dl class="metadata">' + ''.join('<div><dt>' + bi(zh, en) + '</dt><dd>' + e(val) + '</dd></div>' for zh, en, val in [
             ("内容作者", "Content author", s.get("author") or "未记录 / Not recorded"),
@@ -290,7 +290,7 @@ def render_archive(company, snapshots, selected_id=None, documents=None, researc
     right_panel = '<div class="review-tabs" role="tablist" aria-label="Review sidebar">'+''.join('<button type="button" role="tab" id="tab-'+key+'" aria-controls="panel-'+key+'" aria-selected="'+str(i==0).lower()+'" tabindex="'+('0' if i==0 else '-1')+'" data-review-tab="'+key+'">'+bi(zh,en)+'</button>' for i,(key,zh,en,body) in enumerate(panels))+'</div>'
     right_panel += ''.join('<section role="tabpanel" id="panel-'+key+'" aria-labelledby="tab-'+key+'" '+('hidden' if i else '')+'>'+body+'</section>' for i,(key,zh,en,body) in enumerate(panels))
     payload = json.dumps(client, ensure_ascii=False).replace('<', '\\u003c')
-    drawer = '<div id="source-drawer" hidden><div class="source-toolbar"><strong>' + bi("原文证据", "Source evidence") + '</strong><a id="source-new-tab" target="_blank" rel="noopener">' + bi("新窗口 ↗", "New tab ↗") + '</a><button id="close-source" aria-label="Close source">×</button></div><div id="source-caption"></div><iframe id="source-frame" title="Original evidence" sandbox="allow-same-origin allow-scripts"></iframe></div>'
+    drawer = '<div id="source-drawer" role="dialog" aria-label="参考摘录 / Reference excerpt" hidden><div class="source-toolbar"><strong>' + bi("原文证据", "Source evidence") + '</strong><a id="source-new-tab" target="_blank" rel="noopener">' + bi("新窗口 ↗", "New tab ↗") + '</a><button id="close-source" aria-label="Close source">×</button></div><div id="source-caption"></div><div id="source-excerpt"></div></div>'
     return '''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>''' + e(company_name) + ''' · Research Archive</title><style>''' + CSS + '''</style></head><body><header><a href="/companies">Uteki / ''' + bi("公司", "Companies") + '''</a><strong>''' + e(company_name) + '''</strong><button id="language">中文 / EN</button></header>''' + company_tabs(company_id, active_section) + '''<div id="feedback" role="status" hidden></div><main><aside class="report-list-rail">''' + left_panel + '''</aside><div class="detail"><div id="report-reading">''' + content + '''</div></div><div class="material-rail" role="complementary" aria-label="Source snapshot">''' + right_panel + '''</div></main>''' + drawer + '''<script type="application/json" id="archive-state">''' + payload + '''</script><script>''' + JS + '''</script></body></html>'''
 
 
@@ -410,7 +410,7 @@ document.querySelectorAll('#scope-filter').forEach(el=>el.onchange=()=>{
  location.assign(u.href);
 });
 document.documentElement.dataset.language=localStorage.getItem('data-language')||'zh';
-document.getElementById('language').onclick=()=>{const l=lang()==='en'?'zh':'en';document.documentElement.dataset.language=l;localStorage.setItem('data-language',l);hideCitationPreview();const caption=document.getElementById('source-caption');caption.textContent=caption.dataset[l]||''};
+document.getElementById('language').onclick=()=>{const l=lang()==='en'?'zh':'en';document.documentElement.dataset.language=l;localStorage.setItem('data-language',l);closeSource();const caption=document.getElementById('source-caption');caption.textContent=caption.dataset[l]||''};
 const showDeleted=document.getElementById('show-deleted');
 showDeleted.checked=new URLSearchParams(location.search).get('deleted')==='1'||state.selected?.status==='deleted';
 function toggleDeleted(){document.body.classList.toggle('show-deleted',showDeleted.checked);const u=new URL(location.href);if(showDeleted.checked)u.searchParams.set('deleted','1');else u.searchParams.delete('deleted');history.replaceState(null,'',u)}
@@ -478,7 +478,9 @@ const blockKey=el=>el.hasAttribute('data-md-line')?'md:'+el.dataset.mdLine+(el.h
 const progress=document.createElement('span');progress.id='block-progress';progress.setAttribute('role','status');
 document.querySelector('.report-toolbar')?.prepend(progress);
 const accepted=k=>state.block_decisions?.[k]?.accepted===true;
-function updateProgress(){const keys=Object.keys(state.blocks||{}),n=keys.filter(accepted).length;progress.textContent=tr('内容采纳 ','Content accepted ')+n+' / '+keys.length;blockNodes.forEach(el=>el.dataset.accepted=String(accepted(blockKey(el))))}
+const rejected=k=>state.block_decisions?.[k]?.decision==='rejected';
+function updateProgress(){const keys=Object.keys(state.blocks||{}),n=keys.filter(k=>accepted(k)||rejected(k)).length;progress.textContent=keys.length&&n===keys.length?tr('已完成批阅','Review complete'):tr('已批阅（','Reviewed (')+n+'/'+keys.length+tr('）',')');blockNodes.forEach(el=>{const k=blockKey(el);el.dataset.accepted=String(accepted(k));el.dataset.rejected=String(rejected(k))})}
+function updateDecisionButtons(){const k=hoveredBlock&&blockKey(hoveredBlock);acceptButton.textContent=tr('采纳','Accept');rejectButton.textContent=tr('拒绝','Reject');acceptButton.setAttribute('aria-pressed',String(accepted(k)));rejectButton.setAttribute('aria-pressed',String(rejected(k)))}
 const blockActions=document.createElement('div');blockActions.id='block-actions';blockActions.hidden=true;
 const acceptButton=document.createElement('button');acceptButton.type='button';blockActions.append(acceptButton);document.body.append(blockActions);
 let hoveredBlock=null, hideBlockTimer=null;const actionSlots=new Map();
@@ -490,7 +492,7 @@ blockActions.addEventListener('focusin',cancelBlockHide);
 blockActions.addEventListener('focusout',scheduleBlockHide);
 let feedbackOpen=false;
 function positionActions(el){const slot=actionSlots.get(el);if(slot&&blockActions.parentElement!==slot)slot.append(blockActions)}
-function showBlockActions(el){if(editing||busy||feedbackOpen)return;cancelBlockHide();hoveredBlock=el;acceptButton.textContent=accepted(blockKey(el))?tr('撤销采纳','Undo acceptance'):tr('采纳','Accept');positionActions(el);blockActions.hidden=false;requestAnimationFrame(()=>blockActions.classList.add('actions-visible'))}
+function showBlockActions(el){if(editing||busy||feedbackOpen)return;cancelBlockHide();hoveredBlock=el;updateDecisionButtons();positionActions(el);blockActions.hidden=false;requestAnimationFrame(()=>blockActions.classList.add('actions-visible'))}
 blockNodes.forEach(el=>{
  el.classList.add('review-block');el.tabIndex=0;
  const anchor=el.closest('.report-table')||el;
@@ -549,37 +551,21 @@ if(structureNodes.length&&state.selected?.status!=='deleted'){
   insertBoundary(boundaryAnchor,end+1);
  });
 }
-const likeButton=document.createElement('button'),dislikeButton=document.createElement('button');
-likeButton.type=dislikeButton.type='button';likeButton.textContent=tr('赞','Like');dislikeButton.textContent=tr('踩','Dislike');
-blockActions.append(likeButton,dislikeButton);
-const feedbackForm=document.createElement('form');feedbackForm.id='block-feedback-form';feedbackForm.hidden=true;
-const feedbackReason=document.createElement('textarea');feedbackReason.required=true;feedbackReason.maxLength=12000;feedbackReason.rows=3;feedbackReason.placeholder=tr('这段哪里不好？希望怎样改？','What is wrong with this paragraph? How should it change?');feedbackReason.setAttribute('aria-label',tr('点踩原因','Reason for dislike'));
-const feedbackSave=document.createElement('button'),feedbackCancel=document.createElement('button');feedbackSave.type='submit';feedbackCancel.type='button';feedbackSave.textContent=tr('保存并用于重分析','Save for reanalysis');feedbackCancel.textContent=tr('取消','Cancel');
-const feedbackMessage=document.createElement('span');feedbackMessage.setAttribute('role','status');
-feedbackForm.append(feedbackReason,feedbackSave,feedbackCancel,feedbackMessage);blockActions.append(feedbackForm);
-let feedbackTarget=null;
-function closeFeedback(){feedbackForm.hidden=true;feedbackOpen=false;feedbackTarget=null;acceptButton.disabled=false;scheduleBlockHide()}
-feedbackCancel.onclick=closeFeedback;
-dislikeButton.onclick=()=>{if(busy||editing||!hoveredBlock)return;feedbackTarget=hoveredBlock;feedbackOpen=true;cancelBlockHide();feedbackForm.hidden=false;feedbackReason.value='';feedbackMessage.textContent='';acceptButton.disabled=true;positionActions(feedbackTarget);feedbackReason.focus()};
-async function saveBlockFeedback(vote,el,reason){
- if(busy||!el)return;const key=blockKey(el);busy=true;likeButton.disabled=true;dislikeButton.disabled=true;feedbackSave.disabled=true;
- try{const response=await fetch('/api/research-archive',{method:'POST',headers:{'Content-Type':'application/json','X-Uteki-Request':'1'},body:JSON.stringify({snapshot_id:state.selected.id,action:'comment',expected_revision:state.selected.revision,feedback_vote:vote,block_id:key,block_hash:state.blocks[key],text:reason,kind:'preference',carry_forward:true})});const result=await response.json();if(!response.ok)throw Error(result.error||response.status);state.selected.revision=result.revision;el.dataset.feedback=vote;closeFeedback();const notice=document.getElementById('feedback');notice.hidden=false;notice.textContent=tr('段落反馈已保存，将带入后续重分析。','Paragraph feedback saved for subsequent reanalysis.');}
- catch(error){feedbackMessage.textContent=tr('未保存：','Not saved: ')+error.message;const notice=document.getElementById('feedback');notice.hidden=false;notice.textContent=feedbackMessage.textContent}
- finally{busy=false;likeButton.disabled=false;dislikeButton.disabled=false;feedbackSave.disabled=false}
-}
-likeButton.onclick=()=>{if(feedbackOpen)return;saveBlockFeedback('up',hoveredBlock,tr('认可这段分析，请保留其有效做法。','This paragraph is useful; retain its effective approach.'))};
-feedbackForm.onsubmit=e=>{e.preventDefault();if(feedbackReason.value.trim())saveBlockFeedback('down',feedbackTarget,feedbackReason.value.trim())};
-acceptButton.onclick=async()=>{
+const rejectButton=document.createElement('button'),editButton=document.createElement('button');
+rejectButton.type=editButton.type='button';editButton.textContent=tr('编辑','Edit');blockActions.append(rejectButton,editButton);
+editButton.onclick=()=>{if(!hoveredBlock||busy||editing)return;const target=hoveredBlock;blockActions.hidden=true;startBlockEdit(target)};
+async function decideBlock(action){
  if(!hoveredBlock||busy||editing)return;
- const key=blockKey(hoveredBlock),action=accepted(key)?'unaccept_block':'accept_block';busy=true;acceptButton.disabled=true;
+ const key=blockKey(hoveredBlock);busy=true;acceptButton.disabled=rejectButton.disabled=editButton.disabled=true;
  try{
   const response=await fetch('/api/research-archive',{method:'POST',headers:{'Content-Type':'application/json','X-Uteki-Request':'1'},body:JSON.stringify({snapshot_id:state.selected.id,action,expected_revision:state.selected.revision,block_id:key,block_hash:state.blocks[key]})});
   const result=await response.json();if(!response.ok)throw Error(result.error||response.status);
-  state.selected.revision=result.revision;state.block_decisions=result.snapshot.block_decisions||{};updateProgress();
-  acceptButton.textContent=accepted(key)?tr('撤销采纳','Undo acceptance'):tr('采纳','Accept');
+  state.selected.revision=result.revision;state.block_decisions=result.snapshot.block_decisions||{};updateProgress();updateDecisionButtons();
  }catch(error){const feedback=document.getElementById('feedback');feedback.hidden=false;feedback.textContent=tr('未保存：','Not saved: ')+error.message}
- finally{busy=false;acceptButton.disabled=false}
-};
+ finally{busy=false;acceptButton.disabled=rejectButton.disabled=editButton.disabled=false}
+}
+acceptButton.onclick=()=>decideBlock(accepted(blockKey(hoveredBlock))?'unaccept_block':'accept_block');
+rejectButton.onclick=()=>decideBlock(rejected(blockKey(hoveredBlock))?'unaccept_block':'reject_block');
 
 
 document.getElementById('language').addEventListener('click',updateProgress);
@@ -612,29 +598,8 @@ window.addEventListener('beforeunload',e=>{if(editing&&(structuralDraft||editNod
 document.addEventListener('click',e=>{if(editing&&e.target.closest('[contenteditable] a'))e.preventDefault()},true);
 document.getElementById('opinion-form')?.addEventListener('submit',event=>{event.preventDefault();const data=new FormData(event.target);mutate('comment',{text:data.get('text'),kind:data.get('kind'),carry_forward:data.has('carry_forward')})});
 const drawer=document.getElementById('source-drawer');
-const citationPreview=document.createElement('div');
-citationPreview.id='citation-preview';citationPreview.role='tooltip';citationPreview.hidden=true;document.body.append(citationPreview);
-let previewLink=null,previewTimer;
-function hideCitationPreview(){clearTimeout(previewTimer);citationPreview.hidden=true;previewLink?.removeAttribute('aria-describedby');previewLink=null}
-function showCitationPreview(link){
- clearTimeout(previewTimer);previewLink?.removeAttribute('aria-describedby');previewLink=link;
- citationPreview.textContent=lang()==='zh'?(link.dataset.quoteZh?'中文译文（辅助阅读，待人工复核）\\n'+link.dataset.quoteZh+'\\n\\n英文引用\\n'+link.dataset.fullQuote:'暂无中文译文 · 以下为英文引用\\n'+link.dataset.fullQuote):link.dataset.fullQuote;
- citationPreview.hidden=false;citationPreview.scrollTop=0;link.setAttribute('aria-describedby',citationPreview.id);
- const rect=link.getBoundingClientRect(),width=citationPreview.offsetWidth,height=citationPreview.offsetHeight;
- citationPreview.style.left=Math.max(12,Math.min(rect.left,innerWidth-width-12))+'px';
- citationPreview.style.top=Math.max(12,rect.bottom+8+height<=innerHeight-12?rect.bottom+8:rect.top-height-8)+'px';
-}
-const deferHidePreview=()=>{previewTimer=setTimeout(hideCitationPreview,180)};
-document.querySelectorAll('.evidence-text').forEach(link=>{
- link.dataset.fullQuote=link.title;link.removeAttribute('title');
- link.addEventListener('mouseenter',()=>showCitationPreview(link));link.addEventListener('mouseleave',deferHidePreview);
- link.addEventListener('focus',()=>showCitationPreview(link));link.addEventListener('blur',deferHidePreview);
- link.addEventListener('click',hideCitationPreview);
-});
-citationPreview.addEventListener('mouseenter',()=>clearTimeout(previewTimer));citationPreview.addEventListener('mouseleave',deferHidePreview);
-document.addEventListener('scroll',event=>{if(event.target!==citationPreview)hideCitationPreview()},true);
-window.addEventListener('resize',hideCitationPreview);
-document.addEventListener('keydown',event=>{if(event.key==='Escape')hideCitationPreview()});
+let sourceTrigger=null;
+function closeSource(restoreFocus=false){drawer.hidden=true;if(restoreFocus)sourceTrigger?.focus()}
 document.querySelectorAll('.citation-toggle').forEach(button=>button.onclick=()=>{
  const expanded=button.getAttribute('aria-expanded')==='true';
  document.getElementById(button.getAttribute('aria-controls')).hidden=expanded;
@@ -642,10 +607,18 @@ document.querySelectorAll('.citation-toggle').forEach(button=>button.onclick=()=
  button.querySelector('.more-label').hidden=!expanded;
  button.querySelector('.less-label').hidden=expanded;
 });
-document.querySelectorAll('[data-source]').forEach(link=>link.onclick=event=>{event.preventDefault();event.stopPropagation();drawer.hidden=false;document.body.classList.add('source-open');const caption=document.getElementById('source-caption');caption.dataset.zh=link.dataset.sourceTitleZh;caption.dataset.en=link.dataset.sourceTitle;caption.textContent=caption.dataset[lang()];document.getElementById('source-frame').src=link.dataset.source;document.getElementById('source-new-tab').href=link.dataset.source;document.getElementById('close-source').focus()});
-function closeSource(){drawer.hidden=true;document.body.classList.remove('source-open')}
-document.getElementById('close-source').onclick=closeSource;
-document.addEventListener('keydown',event=>{if(event.key==='Escape')closeSource()});
+document.querySelectorAll('[data-source]').forEach(link=>link.onclick=event=>{
+ event.preventDefault();event.stopPropagation();sourceTrigger=link;drawer.hidden=false;
+ const caption=document.getElementById('source-caption');caption.dataset.zh=link.dataset.sourceTitleZh||link.dataset.sourceTitle||'';caption.dataset.en=link.dataset.sourceTitle||'';caption.textContent=caption.dataset[lang()];
+ const excerpt=document.getElementById('source-excerpt');excerpt.replaceChildren();
+ if(lang()==='zh'&&link.dataset.quoteZh){const label=document.createElement('small');label.textContent='中文译文 · 辅助阅读';const translation=document.createElement('p');translation.textContent=link.dataset.quoteZh;excerpt.append(label,translation)}
+ const label=document.createElement('small');label.textContent=tr('原文摘录','Original excerpt');const quote=document.createElement('blockquote');quote.textContent=link.title||link.dataset.fullQuote||tr('此引用未记录摘录。','No excerpt recorded for this reference.');excerpt.append(label,quote);
+ document.getElementById('source-new-tab').href=link.dataset.source;document.getElementById('close-source').focus();
+});
+document.getElementById('close-source').onclick=()=>closeSource(true);
+document.addEventListener('click',event=>{if(!drawer.hidden&&!drawer.contains(event.target))closeSource()});
+document.addEventListener('keydown',event=>{if(event.key==='Escape')closeSource(true)});
+
 '''
 
 JS += '\n' + Path(__file__).with_name('annotations.js').read_text(encoding='utf-8')

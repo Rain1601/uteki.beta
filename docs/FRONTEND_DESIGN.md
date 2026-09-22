@@ -503,3 +503,13 @@ Home hover now reserves two lines for the excerpt, avoiding height changes and r
 ## System-wide interface consolidation
 
 The shared style guide now has an implementation token file: `apps/review_workbench/design_tokens.css`. Theme injection loads it before component styles. Company/research/home color forks are removed or mapped to shared tokens; retired homepage renderer and early company universe styling removed. Company detail headings, report rails/body spacing, source/data tables and shared controls are consolidated. All original snapshot, citation, review and edit behavior is retained. See [interface review matrix](INTERFACE_REVIEW.md). Browser visual review is still pending under current access policy; automated tests do not constitute visual approval.
+
+
+## Company brief: judgments before metadata
+
+Company overview now renders the selected recorded report’s actual judgments immediately, preserving original wording and status. Compact company heading; author, revision, report date and source identity in the right context rail. Subsequent judgments expand with a 200ms height transition within the reading region; reduced motion switches immediately. Archive is disclosure-only; full report and evidence links remain. Explicitly not a newly generated recent-performance brief. Dedicated company_brief CSS/JS avoids changing other workspaces. Browser visual review pending.
+
+
+## 2026-09-20 批阅交互收尾
+
+沿用正文、段落操作条和修订历史；操作为采纳／拒绝／编辑。淡绿 #e8f4eb 表示采纳，淡红 #fbe9e7 表示拒绝，保留文字按钮及按下状态。两种决定均计入已批阅（n/N），全部处理后为已完成批阅。旧撤销记录不算拒绝。编辑复用新候选和差异记录，变更块的决定失效。引用点击只展示记录中的摘录，可点外部、关闭按钮或 Escape 关闭，不加载整篇文档；保留主动打开来源入口。浏览器策略校验不可用，实际视觉验收待用户反馈。

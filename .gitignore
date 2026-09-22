@@ -9,7 +9,8 @@ build/
 *.egg-info/
 experiments/*/result.json
 data/evaluation/reviews/*.json
-data/research_archive/
+data/research_archive/*
+!data/research_archive/state.json
 
 # Local work products and machine state
 .DS_Store

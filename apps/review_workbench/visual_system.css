@@ -736,9 +736,9 @@ body[data-workbench=research] #block-actions button{font-size:12px;padding:5px 1
 
 body[data-workbench=research] #block-progress{font-size:13px;color:var(--muted);display:block;margin-bottom:8px}
 
-body[data-workbench=research] .review-block[data-accepted=true]{background:#eef0e9}
+body[data-workbench=research] .review-block[data-accepted=true]{background:#e8f4eb}
 
-body[data-workbench=research] .review-block[data-accepted=true]:hover{background:#e5e9dc}
+body[data-workbench=research] .review-block[data-accepted=true]:hover{background:#dceee1}
 
 
 /* Place the acceptance control below the reviewed block, clear of its text. */
@@ -929,3 +929,12 @@ body[data-workbench=companies] tbody tr{transition:background-color 140ms ease}
 
 @media(prefers-reduced-motion:reduce){body[data-workbench=companies] tbody tr{transition:none}
 }
+
+/* Paragraph review: two decisions, one progress count; compact source excerpt. */
+body[data-workbench=research] .review-block[data-rejected=true]{background:#fbe9e7}
+body[data-workbench=research] .review-block[data-rejected=true]:hover{background:#f6dedb}
+body[data-workbench=research] #block-actions>button[aria-pressed=true]{font-weight:600;color:var(--ink);text-decoration:underline;text-underline-offset:4px}
+body[data-workbench=research] #source-drawer{inset:15vh 24px auto auto;width:min(560px,calc(100vw - 32px));max-height:70dvh;border:1px solid var(--line);border-radius:10px;z-index:80;overflow:hidden}
+body[data-workbench=research] #source-excerpt{padding:16px 20px;overflow:auto;overscroll-behavior:contain;font-size:14px;line-height:1.8;white-space:pre-wrap}
+body[data-workbench=research] #source-excerpt blockquote{margin:8px 0 0;border:0;padding:0}
+body[data-workbench=research] #source-excerpt p{margin:8px 0 18px}

@@ -91,8 +91,9 @@ class ResearchArchiveUITest(unittest.TestCase):
         page = render_archive({"id": "alphabet"}, [row])
         self.assertIn("Inherited sources or opinions changed", page)
         self.assertIn('data-source="/companies/alphabet/documents/doc/source#block-1"', page)
-        self.assertIn('id="source-drawer" hidden', page)
-        self.assertNotIn('<iframe src=', page)
+        self.assertIn('id="source-drawer" role="dialog"', page)
+        self.assertIn('id="source-excerpt"', page)
+        self.assertNotIn('<iframe', page)
         self.assertIn('id="source-new-tab"', page)
 
     def test_citation_contents_and_distinct_document_labels(self):

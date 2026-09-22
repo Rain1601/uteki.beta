@@ -76,23 +76,8 @@ def render_reports(rows, company=None):
 
 
 def render_company_overview(company, rows, catalog, bundle=None):
-    docs=catalog.get('documents',[]) if company['id']=='alphabet' else []
-    groups=report_groups(rows)
-    base='/companies/'+quote(company['id'],safe='')
-    body=crumb(company)+company_tabs(company['id'])+'<div class="workspace-heading"><h1 class="company-title">'+e(company['name'])+'</h1><p>'+e(company['ticker'])+' · '+bi('公司研究工作区','Company research workspace')+'</p></div>'
-    body+='<div class="company-research-layout"><section class="company-report-main"><div class="section-heading"><h2>'+bi('分析报告','Analysis reports')+'</h2><a href="'+base+'/reports">'+bi('全部报告','All reports')+'</a></div>'
-    if groups:
-        featured=groups[0][0]
-        label=featured.get('question') or featured.get('title') or '研究报告'
-        label=label.splitlines()[0]
-        body+='<div class="featured-report"><p class="muted">'+bi('继续研究','Continue research')+'</p><h3>'+e(label)+'</h3><p>'+bi('阅读分析、核对依据，再保存你的修订。人工与 Agent 的修改都有独立记录。','Read the analysis, verify its evidence and save a revision. Human and agent edits each retain a record.')+'</p><a class="primary-link" href="'+base+'/reports/'+quote(featured['id'],safe='')+'">'+bi('阅读与编辑报告','Read and edit report')+'</a></div>'
-        body+='<h2>'+bi('研究档案','Research archive')+'</h2>'+report_list(rows,5)
-    else:
-        body+='<p class="workspace-empty">'+bi('还没有分析报告。先核对原始材料，确定这家公司的研究问题。','No analysis report yet. Review source materials and define the research question.')+'</p><a href="'+base+'/materials">'+bi('查看原始材料','Open source materials')+'</a>'
-    body+='</section><aside class="research-support"><h2>'+bi('研究依据','Research evidence')+'</h2><a class="support-link" href="'+base+'/materials"><strong>'+bi('原始材料','Source materials')+'</strong><span>'+bi('财报、电话会与官方披露','Filings, earnings calls and disclosures')+'</span></a><p class="muted">'+bi(f'{len(docs)} 份目录记录；处理状态见材料库。',f'{len(docs)} catalog records; processing status is shown in Materials.')+'</p>'
-    body+='<a class="support-link" href="'+base+'/data"><strong>'+bi('结构化数据','Structured data')+'</strong><span>'+bi('财务指标、业务结构与出处','Metrics, business structure and evidence')+'</span></a><p class="muted">'+(bi('FY2025 候选数据，待审核。','FY2025 candidate data; pending review.') if bundle else bi('尚未生成结构化研究数据。','Structured research data is not available yet.'))+'</p>'
-    body+='<details class="index-guidance"><summary>'+bi('文档索引在哪里','Where to find document indexes')+'</summary><p>'+bi('进入原始材料，打开具体文档，即可查看目录与原文定位。','Open a document in Source materials to view its outline and source locations.')+'</p><a href="'+base+'/materials">'+bi('进入材料库','Open materials')+'</a></details></aside></div>'
-    return page(company['name'],body)
+    from apps.review_workbench.company_brief import render_brief
+    return render_brief(company, rows, catalog, bundle)
 
 
 def render_materials(company,catalog,reading):

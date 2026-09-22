@@ -381,7 +381,7 @@ class Store:
                 kwargs['human_notes']=kwargs.get('human_notes') or ('新增内容块' if structural_action=='insert_block' else '删除内容块')
                 action='edit'
 
-            if action in {'accept_block', 'unaccept_block'}:
+            if action in {'accept_block', 'reject_block', 'unaccept_block'}:
                 if row.get('status') == 'deleted':
                     raise ArchiveError('Restore the report before reviewing blocks')
                 blocks=review_blocks(row.get('answer'))
@@ -389,7 +389,8 @@ class Store:
                 if key not in blocks or kwargs.get('block_hash') != blocks[key]:
                     raise ConflictError('Block changed; reload before reviewing')
                 decisions=valid_decisions(row)
-                decision={'hash':blocks[key], 'accepted':action=='accept_block', 'at':timestamp,
+                decision={'hash':blocks[key], 'accepted':action=='accept_block',
+                          'decision':{'accept_block':'accepted','reject_block':'rejected','unaccept_block':'pending'}[action], 'at':timestamp,
                           'actor':kwargs.get('actor','user'), 'source_snapshot_id':snapshot_id}
                 decisions[key]=decision
                 row['block_decisions']=decisions
