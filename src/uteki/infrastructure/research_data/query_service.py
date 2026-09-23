@@ -13,10 +13,19 @@ import threading
 
 import duckdb
 
-from uteki.agents.document_reader import DocumentReader
+from uteki.agents.reading.document_reader import DocumentReader
 from uteki.domain.research_data.query_contract import DataQuery, RecordRequest, ResearchRecord, QueryResult, VERSION
+from uteki.domain.research_data.execution_scope import (
+    EXECUTION_VERSION, ExecutionScope, ReadCursor, SearchCursor,
+    SourceOutlineRequest, SourceReadRequest, SourceSearchRequest,
+)
+from uteki.domain.research_data.evidence_package import EvidencePackage
+from uteki.domain.research_data.task_plan import TaskPlan, TaskStep, ProgressSnapshot
+from uteki.domain.research_data.task_completion import CompletionAssessment
 from .financial_records import digest
 from .query_dataset import contained, load
+
+MAX_DOCUMENT_BYTES = 80000
 
 
 class QueryDataPort:
@@ -54,6 +63,10 @@ class QueryDataPort:
 
     def close(self):
         self._db.close()
+
+    def scoped(self, scope):
+        """Borrow this read-only connection with an explicit, immutable scope."""
+        return ScopedQueryDataPort(self, scope)
 
     def __enter__(self):
         return self
@@ -134,12 +147,30 @@ class QueryDataPort:
         cutoff = date.fromisoformat(knowledge_cutoff)
         found = {}
         for eid in dict.fromkeys(evidence_ids):
+            clause, args = self._source_restriction("s.")
             row = self._db.execute("SELECT e.payload FROM evidence e JOIN sources s USING(source_snapshot_id) "
-                                   "WHERE e.evidence_id = ? AND s.available_at <= ?", [eid, cutoff]).fetchone()
+                                   "WHERE e.evidence_id = ? AND s.available_at <= ?" + clause,
+                                   [eid, cutoff, *args]).fetchone()
             if row is None:
                 raise KeyError("evidence unavailable at requested cutoff: " + eid)
             found[eid] = json.loads(row[0])
         return {"snapshot_id": self.snapshot_id, "evidence": found}
+
+    def _source_restriction(self, prefix=""):
+        scope = getattr(self, "_execution_scope", None)
+        if scope is None:
+            return "", []
+        sources = ", ".join("?" for _ in scope.source_snapshot_ids)
+        companies = ", ".join("?" for _ in scope.company_ids)
+        return (f" AND {prefix}source_snapshot_id IN ({sources}) AND {prefix}company_id IN ({companies})",
+                [*scope.source_snapshot_ids, *scope.company_ids])
+
+    def _observation_restriction(self, cutoff):
+        clause, args = self._source_restriction()
+        if not clause:
+            return "", []
+        return (" AND source_snapshot_id IN (SELECT source_snapshot_id FROM sources WHERE available_at <= ?"
+                + clause + ")", [cutoff, *args])
 
     @staticmethod
     def _key(request):
@@ -159,13 +190,16 @@ class QueryDataPort:
             args += [request.period.kind, request.period.start, request.period.end]
         else:
             sql += " AND period_kind IS NULL"
-        sql += " AND available_at <= ? AND status = 'candidate' ORDER BY record_id LIMIT 257"
-        rows = [json.loads(r[0]) for r in self._sql(sql, args + [query.knowledge_cutoff], trace)]
+        def select(cutoff):
+            clause, scope_args = self._observation_restriction(cutoff)
+            return (sql + clause + " AND available_at <= ? AND status = 'candidate' ORDER BY record_id LIMIT 257",
+                    args + scope_args + [cutoff])
+        rows = [json.loads(r[0]) for r in self._sql(*select(query.knowledge_cutoff), trace)]
         if len(rows) > 256:
             return {**base, "status": "limited", "reason": "narrow_query_before_consuming_records"}, []
         base["record_ids"] = [r["record_id"] for r in rows]
         if not rows:
-            uncapped = self._db.execute(sql, args + [date.max]).fetchall()
+            uncapped = self._db.execute(*select(date.max)).fetchall()
             if uncapped:
                 return {**base, "status": "not_available_at_cutoff", "reason": "later_source_exists_in_snapshot"}, []
             company = self.entities[request.entity_id]["company_id"]
@@ -175,11 +209,12 @@ class QueryDataPort:
             matching_periods = {s["source_snapshot_id"] for s in self.sources if s["source_snapshot_id"] in eligible_sources
                                 and request.period and s["period_end"] == str(request.period.end)}
             if request.period:
+                clause, scope_args = self._observation_restriction(query.knowledge_cutoff)
                 matching_periods.update(r[0] for r in self._db.execute(
                     "SELECT DISTINCT source_snapshot_id FROM observations WHERE entity_id = ? AND period_kind = ? "
-                    "AND period_start IS NOT DISTINCT FROM ? AND period_end = ? AND available_at <= ?",
+                    "AND period_start IS NOT DISTINCT FROM ? AND period_end = ? AND available_at <= ?" + clause,
                     [request.entity_id, request.period.kind, request.period.start, request.period.end,
-                     query.knowledge_cutoff]).fetchall() if r[0] in eligible_sources)
+                     query.knowledge_cutoff, *scope_args]).fetchall() if r[0] in eligible_sources)
             return {**base, "status": "source_present_unprocessed" if matching_periods else "source_missing",
                     "reason": "not_structured_in_this_pilot; not a not-disclosed finding"}, []
         if all(r["value_relation"] == "qualitative" for r in rows):
@@ -229,7 +264,8 @@ class QueryDataPort:
                            "source_url": source["source_url"], "source_sha256": source["source_sha256"],
                            "anchor_block_id": hit["block_id"], "block_ids": block_ids, "context_characters": chars,
                            "source_period_end": source["period_end"], "available_at": source["available_at"]}
-                if chars > 80000:
+                if chars > 80000 or (getattr(self, "_execution_scope", None) is not None
+                                    and len(json.dumps(context, ensure_ascii=False).encode()) > MAX_DOCUMENT_BYTES):
                     contexts.append({**payload, "status": "context_too_large", "blocks": [],
                                      "continuation": {"source_snapshot_id": source["source_snapshot_id"], "block_id": hit["block_id"]}})
                 else:
@@ -353,3 +389,269 @@ class QueryDataPort:
                            records=tuple(ResearchRecord.model_validate(r) for r in all_records.values()),
                            selections=tuple(selections.values()), computed_facts=tuple(computed), documents=tuple(documents),
                            evidence=evidence, gaps=tuple(gaps), trace=tuple(trace)).model_dump(mode="json")
+
+
+class ScopedQueryDataPort(QueryDataPort):
+    """One source allowlist for all read tools; owns no connection or snapshot."""
+
+    def __init__(self, port, scope):
+        self._execution_scope = ExecutionScope.model_validate(scope)
+        scope = self._execution_scope
+        parent_scope = getattr(port, "_execution_scope", None)
+        if parent_scope is not None and (
+                not set(scope.company_ids).issubset(parent_scope.company_ids)
+                or not set(scope.source_snapshot_ids).issubset(parent_scope.source_snapshot_ids)
+                or scope.knowledge_cutoff > parent_scope.knowledge_cutoff
+                or (scope.include_candidates and not parent_scope.include_candidates)):
+            raise ValueError("a scoped port cannot widen its company, source, cutoff or candidate access")
+        if scope.snapshot_id != port.snapshot_id:
+            raise ValueError("snapshot mismatch")
+        if scope.source_policy_id != port.manifest["source_policy_id"]:
+            raise ValueError("source policy mismatch")
+        selected = []
+        for sid in scope.source_snapshot_ids:
+            matches = [s for s in port.sources if s["source_snapshot_id"] == sid]
+            if len(matches) != 1:
+                raise ValueError("selected source is unknown or ambiguous")
+            if matches[0]["company_id"] not in scope.company_ids:
+                raise ValueError("selected source is outside company scope")
+            selected.append(matches[0])
+        if set(scope.company_ids) != {s["company_id"] for s in selected}:
+            raise ValueError("each requested company requires an explicitly selected source")
+        self.dataset, self.manifest, self.metrics = port.dataset, port.manifest, port.metrics
+        self._db, self._readers = port._db, port._readers
+        self.sources = selected
+        self.scope = scope
+        self.scope_id = "scope-" + digest(scope.model_dump(mode="json"))[:24]
+        # Entity roots are supplied by the selected source metadata. Child entities
+        # and their accounting bases must be observable inside the same cutoff.
+        entities = {s["company_id"]: {"entity_id": s["company_id"], "company_id": s["company_id"],
+                                      "accounting_bases": set()} for s in selected}
+        clause, args = self._source_restriction("s.")
+        rows = self._db.execute(
+            "SELECT DISTINCT o.entity_id, s.company_id, o.accounting_basis FROM observations o "
+            "JOIN sources s USING(source_snapshot_id) WHERE o.available_at <= ? AND s.available_at <= ?" + clause,
+            [scope.knowledge_cutoff, scope.knowledge_cutoff, *args]).fetchall()
+        for entity, company, basis in rows:
+            entry = entities.setdefault(entity, {"entity_id": entity, "company_id": company, "accounting_bases": set()})
+            if entry["company_id"] != company:
+                raise ValueError("entity belongs to multiple scoped companies")
+            entry["accounting_bases"].add(basis)
+        self.entities = {key: {**value, "accounting_bases": sorted(value["accounting_bases"])}
+                         for key, value in sorted(entities.items())}
+
+    def close(self):
+        """Connection lifecycle belongs to the original QueryDataPort."""
+
+    def scoped(self, scope):
+        """Derived capabilities may retain or narrow, never widen, this scope."""
+        return ScopedQueryDataPort(self, scope)
+
+    def _header(self):
+        scope = self.scope
+        return {"execution_schema_version": EXECUTION_VERSION, "scope_id": self.scope_id,
+                "scope": scope.model_dump(mode="json"), "snapshot_id": self.snapshot_id,
+                "source_policy_id": scope.source_policy_id, "knowledge_cutoff": str(scope.knowledge_cutoff),
+                "candidate_data": scope.include_candidates}
+
+    def _check_headers(self, values):
+        fixed = {"snapshot_id": self.snapshot_id, "source_policy_id": self.scope.source_policy_id,
+                 "knowledge_cutoff": str(self.scope.knowledge_cutoff), "include_candidates": self.scope.include_candidates}
+        if any(key not in fixed or str(value) != str(fixed[key]) for key, value in values.items()):
+            raise ValueError("query headers cannot change the execution scope")
+
+    def get_schema(self, metric_ids=()):
+        result = super().get_schema(metric_ids)
+        result.update(self._header())
+        result["output_contracts"] = {"evidence_package": EvidencePackage.model_json_schema(),
+                                      "task_progress": ProgressSnapshot.model_json_schema(),
+                                      "task_completion": CompletionAssessment.model_json_schema()}
+        result["execution_contracts"] = {name: model.model_json_schema() for name, model in (
+            ("scope", ExecutionScope), ("outline_source", SourceOutlineRequest),
+            ("read_source", SourceReadRequest), ("search_source", SourceSearchRequest))}
+        # Separate discovery avoids expanding legacy planner packets before the
+        # task-driven ReAct integration is implemented.
+        result["task_contracts"] = {"plan": TaskPlan.model_json_schema(), "step": TaskStep.model_json_schema()}
+        result["capabilities"] += ["explicit_source_scope", "source_outline", "chapter_read_with_continuation",
+                                   "paginated_literal_source_search"]
+        result["notes"] += ["Frozen query/record/result schemas describe v0.3 storage; execution_contracts describe current scoped tools.",
+                            "Source reporting dates do not substitute for explicitly requested observation periods.",
+                            "Outline and search previews are navigation, not evidence of complete chapter reading."]
+        return result
+
+    def discover_data(self):
+        scope = self.scope
+        clause, args = self._source_restriction("s.")
+        rows = self._db.execute(
+            "SELECT o.entity_id, o.metric_id, o.period_kind, o.period_start, o.period_end, o.value_kind, count(*) "
+            "FROM observations o JOIN sources s USING(source_snapshot_id) "
+            "WHERE o.available_at <= ? AND s.available_at <= ? AND o.status = 'candidate'" + clause
+            + " GROUP BY ALL ORDER BY o.entity_id, o.metric_id, o.period_end",
+            [scope.knowledge_cutoff, scope.knowledge_cutoff, *args]).fetchall()
+        visible = [s for s in self.sources if s["available_at"] <= str(scope.knowledge_cutoff)]
+        return {**self._header(), "status": "candidate",
+                "sources": [{**s, "queryable": scope.include_candidates} for s in visible],
+                "coverage": [{"entity_id": r[0], "metric_id": r[1], "period_kind": r[2],
+                              "period_start": str(r[3]) if r[3] else None, "period_end": str(r[4]) if r[4] else None,
+                              "value_kind": r[5], "occurrence_count": r[6],
+                              "status": "available_candidate" if scope.include_candidates else "quality_filtered"} for r in rows],
+                "gaps": [{"scope": "source", "source_snapshot_id": s["source_snapshot_id"],
+                          "reason": "not_available_at_cutoff"} for s in self.sources if s not in visible],
+                "limits": self.manifest["limits"], "not_disclosed_inference": "never inferred from a missing row"}
+
+    def query_data(self, request):
+        query = DataQuery.model_validate(request)
+        self._check_headers({key: getattr(query, key) for key in
+                             ("snapshot_id", "source_policy_id", "knowledge_cutoff", "include_candidates")})
+        if any(r.entity_id not in self.entities for r in (*query.records, *query.calculations)):
+            raise ValueError("entity is outside the visible execution scope")
+        if any(d.company_id not in self.scope.company_ids for d in query.documents):
+            raise ValueError("document company is outside execution scope")
+        return {**super().query_data(query), **self._header()}
+
+    def get_evidence(self, evidence_ids, **headers):
+        self._check_headers(headers)
+        return {**super().get_evidence(evidence_ids, snapshot_id=self.snapshot_id,
+                    knowledge_cutoff=str(self.scope.knowledge_cutoff), include_candidates=self.scope.include_candidates),
+                **self._header()}
+
+    def _source(self, sid):
+        matches = [s for s in self.sources if s["source_snapshot_id"] == sid]
+        if len(matches) != 1:
+            raise ValueError("source is outside execution scope")
+        return matches[0]
+
+    def _source_header(self, source):
+        return {**self._header(), "source": source, "source_snapshot_id": source["source_snapshot_id"],
+                "company_id": source["company_id"], "source_period_end": source["period_end"],
+                "available_at": source["available_at"],
+                **{key: source[key] for key in ("index_id", "source_sha256", "source_url") if key in source}}
+
+    def _blocked_source(self, source):
+        if not self.scope.include_candidates:
+            return "quality_filtered"
+        if source["available_at"] > str(self.scope.knowledge_cutoff):
+            return "not_available_at_cutoff"
+        return None
+
+    def _empty(self, source, status, **details):
+        return {**self._source_header(source), "status": status, "blocks": [], "nodes": [], "hits": [],
+                "next_cursor": None, "next_block_id": None, "next_offset": None,
+                "node_complete": False, "not_disclosed": False,
+                "gaps": [{"scope": "document", "source_snapshot_id": source["source_snapshot_id"],
+                          "reason": status, **details}], **details}
+
+    def _navigation(self, source, node_id=None):
+        reader = self._reader(source)
+        if reader.index["index_id"] != source["index_id"]:
+            raise ValueError("source index identity mismatch")
+        if node_id is not None and node_id not in reader.nodes:
+            return reader, self._empty(source, "node_missing", node_id=node_id)
+        return reader, None
+
+    def _cursor_header(self, source, reader, node_id):
+        return {"scope_id": self.scope_id, "snapshot_id": self.snapshot_id,
+                "source_snapshot_id": source["source_snapshot_id"],
+                "index_id": reader.index["index_id"], "node_id": node_id}
+
+    def _check_cursor(self, cursor, source, reader, node_id):
+        if any(getattr(cursor, key) != value for key, value in self._cursor_header(source, reader, node_id).items()):
+            raise ValueError("continuation cursor does not match source, node, index or execution scope")
+
+    def outline_source(self, request):
+        request = SourceOutlineRequest.model_validate(request)
+        source = self._source(request.source_snapshot_id)
+        blocked = self._blocked_source(source)
+        if blocked:
+            return self._empty(source, blocked)
+        reader, _ = self._navigation(source)
+        result = reader.outline()
+        if len(json.dumps(result, ensure_ascii=False).encode()) > MAX_DOCUMENT_BYTES:
+            return self._empty(source, "outline_too_large")
+        return {**result, **self._source_header(source), "index_status": result["status"], "status": "available",
+                "coverage": "Document structure only; no body text has been read.", "gaps": []}
+
+    def read_source(self, request):
+        request = SourceReadRequest.model_validate(request)
+        source = self._source(request.source_snapshot_id)
+        blocked = self._blocked_source(source)
+        if blocked:
+            return self._empty(source, blocked, node_id=request.node_id)
+        reader, missing = self._navigation(source, request.node_id)
+        if missing:
+            return missing
+        start = request.start_block_id
+        if request.cursor:
+            self._check_cursor(request.cursor, source, reader, request.node_id)
+            if start is not None and start != request.cursor.start_block_id:
+                raise ValueError("read start conflicts with continuation cursor")
+            start = request.cursor.start_block_id
+        # Omitting a block explicitly means the start of this selected chapter,
+        # never an implicit selection of another chapter or the whole document.
+        if start is None:
+            start = reader.nodes[request.node_id]["start_block_id"]
+        if start not in reader.positions:
+            raise ValueError("unknown read block")
+        result = reader.read(request.node_id, start, count=request.count)
+        lo, hi = reader._range(request.node_id)
+        returned_start = reader.positions[result["blocks"][0]["block_id"]]
+        returned_end = reader.positions[result["blocks"][-1]["block_id"]] + 1
+        crossing = [g["group_id"] for g in reader.groups
+                    if reader.positions[g["block_ids"][0]] < returned_end
+                    and reader.positions[g["block_ids"][-1]] + 1 > returned_start
+                    and not (lo <= reader.positions[g["block_ids"][0]]
+                             and reader.positions[g["block_ids"][-1]] + 1 <= hi)]
+        if crossing:
+            return self._empty(source, "context_crosses_node", node_id=request.node_id,
+                               requested_start_block_id=start, context_group_ids=crossing,
+                               detail="Complete context crosses this node; explicitly select a containing node before reading.")
+        if len(json.dumps(result, ensure_ascii=False).encode()) > MAX_DOCUMENT_BYTES:
+            return self._empty(source, "context_too_large", node_id=request.node_id,
+                               requested_start_block_id=start,
+                               detail="Full atomic context exceeds the response limit; no blocks read or continuation advanced.")
+        following = result["next_block_id"]
+        cursor = ReadCursor(**self._cursor_header(source, reader, request.node_id), start_block_id=following) if following else None
+        return {**result, **self._source_header(source), "status": "read", "gaps": [],
+                "requested_start_block_id": start, "block_ids": [b["block_id"] for b in result["blocks"]],
+                "next_cursor": cursor.model_dump(mode="json") if cursor else None,
+                "node_complete": following is None,
+                "coverage": "Returned full blocks only; reaching the node end does not prove all earlier blocks were read."}
+
+    def search_source(self, request):
+        request = SourceSearchRequest.model_validate(request)
+        source = self._source(request.source_snapshot_id)
+        blocked = self._blocked_source(source)
+        if blocked:
+            return self._empty(source, blocked, node_id=request.node_id)
+        reader, missing = self._navigation(source, request.node_id)
+        if missing:
+            return missing
+        offset = request.offset if request.offset is not None else 0
+        if request.cursor:
+            self._check_cursor(request.cursor, source, reader, request.node_id)
+            if request.cursor.phrase != request.phrase:
+                raise ValueError("search phrase conflicts with continuation cursor")
+            if request.offset is not None and offset != request.cursor.offset:
+                raise ValueError("search offset conflicts with continuation cursor")
+            offset = request.cursor.offset
+        result = reader.search(request.node_id, request.phrase, offset=offset, limit=request.limit)
+        if offset and offset >= result["total"]:
+            raise ValueError("search offset is outside the matching hit range")
+        following = result["next_offset"]
+        cursor = SearchCursor(**self._cursor_header(source, reader, request.node_id),
+                              phrase=request.phrase, offset=following) if following is not None else None
+        status = "no_literal_match" if not result["total"] else "limited" if following is not None else "matched"
+        return {**result, **self._source_header(source), "status": status, "phrase": request.phrase, "offset": offset,
+                "next_cursor": cursor.model_dump(mode="json") if cursor else None, "not_disclosed": False,
+                "coverage": "Literal source-order previews only; no complete body contexts read or semantic recall established.",
+                "gaps": [] if status == "matched" else [{"scope": "document_search", "reason": status,
+                    "source_snapshot_id": source["source_snapshot_id"], "node_id": request.node_id}]}
+
+    def read_context(self, *, source_snapshot_id, block_id):
+        source = self._source(source_snapshot_id)
+        blocked = self._blocked_source(source)
+        if blocked:
+            return self._empty(source, blocked)
+        reader, _ = self._navigation(source)
+        return self.read_source(SourceReadRequest(source_snapshot_id=source_snapshot_id,
+                                node_id=self._document_node(reader), start_block_id=block_id, count=1))

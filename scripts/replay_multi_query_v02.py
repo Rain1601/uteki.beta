@@ -1,7 +1,7 @@
 """Deterministic regression replay of known queries, not autonomous agent evaluation."""
 import json
 from pathlib import Path
-from uteki.agents.document_reader import DocumentReader, sha
+from uteki.agents.reading.document_reader import DocumentReader, sha
 from uteki.infrastructure.document_sources.index_artifacts import build_index_artifacts
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,7 +36,7 @@ def main():
     write(OUT / 'manifest.json', {'documents':docs,'indexes':{d:r.manifest for d,r in readers.items()},
           'mode':'known-query deterministic regression replay, not fresh agent run',
           'review_status':'pending','checks':old['checks'],'changes':changes,
-          'code_hashes':{str(p.relative_to(ROOT)):sha(p.read_bytes()) for p in [Path(__file__),ROOT/'src/uteki/agents/document_reader.py',ROOT/'src/uteki/agents/reading_groups.py',ROOT/'src/uteki/infrastructure/document_sources/sec_index.py']}})
+          'code_hashes':{str(p.relative_to(ROOT)):sha(p.read_bytes()) for p in [Path(__file__),ROOT/'src/uteki/agents/reading/document_reader.py',ROOT/'src/uteki/agents/reading/reading_groups.py',ROOT/'src/uteki/infrastructure/document_sources/sec_index.py']}})
     metrics=[]
     for path in sorted(OLD.glob('call-*.json')):
         call=json.loads(path.read_text()); args=dict(call['arguments']); tool=call['tool']

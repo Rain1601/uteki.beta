@@ -13,11 +13,12 @@ from pathlib import Path
 
 from agents import Agent, AgentOutputSchema, ModelSettings, Runner, RunConfig
 
-from uteki.agents.analysis_comparison import Answer, model_adapter
-from uteki.agents.call_costs import MeteredModel, pricing_snapshot, summarize
-from uteki.agents.deepseek_model import BASE_URL, DEFAULT_MODEL, json_instructions
-from uteki.agents.local_credentials import load_provider_key
-from uteki.agents.run_budget import BudgetExceeded, RunBudget
+from uteki.agents.reading.citations import Answer
+from uteki.agents.runtime.model_factory import model_adapter
+from uteki.agents.runtime.call_costs import MeteredModel, pricing_snapshot, summarize
+from uteki.agents.runtime.deepseek_model import BASE_URL, DEFAULT_MODEL, json_instructions
+from uteki.agents.runtime.local_credentials import load_provider_key
+from uteki.agents.runtime.run_budget import BudgetExceeded, RunBudget
 from uteki.infrastructure.research_data.financial_records import digest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -103,9 +104,9 @@ async def run(prepared, output, model, budget_usd, provider='deepseek', max_outp
     manifest['openai_client_version'] = importlib.metadata.version('openai')
     manifest['implementation_sha256'] = {
         str(path.relative_to(ROOT)): digest(path.read_bytes()) for path in (
-            Path(__file__).resolve(), ROOT/'src/uteki/agents/deepseek_model.py',
-            ROOT/'src/uteki/agents/analysis_comparison.py', ROOT/'src/uteki/agents/call_costs.py',
-            ROOT/'src/uteki/agents/run_budget.py', ROOT/'src/uteki/agents/local_credentials.py')}
+            Path(__file__).resolve(), ROOT/'src/uteki/agents/runtime/deepseek_model.py',
+            ROOT/'src/uteki/agents/reading/citations.py',ROOT/'src/uteki/agents/runtime/model_factory.py', ROOT/'src/uteki/agents/runtime/call_costs.py',
+            ROOT/'src/uteki/agents/runtime/run_budget.py', ROOT/'src/uteki/agents/runtime/local_credentials.py')}
     save(output/'manifest.json',manifest)
     budget=RunBudget(output/'budget.sqlite',budget_usd)
     rows=[]

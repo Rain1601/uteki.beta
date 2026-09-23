@@ -22,7 +22,7 @@ class VisualSystemTest(unittest.TestCase):
             self.assertEqual(tree.xpath('//body')[0].get('data-workbench'), 'data')
 
     def test_theme_is_scoped_and_reduced_motion_is_supported(self):
-        css = (Path(__file__).resolve().parents[1] / 'apps/review_workbench/visual_system.css').read_text()
+        css = (Path(__file__).resolve().parents[1] / 'apps/review_workbench/static/css/visual_system.css').read_text()
         self.assertIn('body[data-workbench]', css)
         self.assertIn('prefers-reduced-motion:reduce', css)
         self.assertIn('focus-visible', css)

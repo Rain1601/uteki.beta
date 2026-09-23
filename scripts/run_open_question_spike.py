@@ -2,7 +2,7 @@
 import asyncio
 import os
 from pathlib import Path
-from uteki.agents import analysis_comparison as engine
+from uteki.agents.analysis import analysis_comparison as engine
 
 ROOT = Path(__file__).resolve().parents[1]
 QUESTION = '''Alphabet 未来 3～5 年最重要的增长驱动和下行风险是什么？

@@ -8,7 +8,7 @@ import re
 from decimal import Decimal
 from pathlib import Path
 
-from uteki.agents.document_reader import DocumentReader
+from uteki.agents.reading.document_reader import DocumentReader
 from uteki.infrastructure.research_data.financial_records import digest
 
 VERSION = "transcript-records-v0.2"

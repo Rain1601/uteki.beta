@@ -2,9 +2,9 @@
 import argparse
 import json
 from pathlib import Path
-from uteki.agents.material_library import pin_materials
-from uteki.agents.analysis_comparison import ToolSession
-from uteki.agents.document_reader import sha
+from uteki.agents.reading.material_library import pin_materials
+from uteki.agents.reading.tool_session import ToolSession
+from uteki.agents.reading.document_reader import sha
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -19,8 +19,8 @@ def main():
     manifest.update(mode='deterministic retrieval smoke; not model analysis or independent benchmark',
                     model_calls=0,model_cost_usd=0,review_status='pending')
     manifest['code_hashes']={str(p.relative_to(ROOT)):sha(p.read_bytes()) for p in [Path(__file__),
-        ROOT/'src/uteki/agents/document_reader.py',ROOT/'src/uteki/agents/material_library.py',
-        ROOT/'src/uteki/agents/analysis_comparison.py',ROOT/'src/uteki/agents/reading_groups.py']}
+        ROOT/'src/uteki/agents/reading/document_reader.py',ROOT/'src/uteki/agents/reading/material_library.py',
+        ROOT/'src/uteki/agents/reading/tool_session.py',ROOT/'src/uteki/agents/reading/reading_groups.py']}
     (args.output/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
     session=ToolSession(ROOT,manifest,args.output,max_calls=40,max_chars=350000)
     checks=[]

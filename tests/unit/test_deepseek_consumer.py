@@ -65,7 +65,7 @@ class DeepSeekConsumerTests(unittest.TestCase):
                                    max_retries=0,
                                    http_client=httpx.AsyncClient(transport=httpx.MockTransport(respond))) as client:
                 with patch.dict(os.environ, {'DEEPSEEK_API_KEY': 'test-key', 'AIHUBMIX_API_KEY': 'test-key'}), \
-                     patch('uteki.agents.analysis_comparison.AsyncOpenAI', return_value=client) as factory:
+                     patch('uteki.agents.runtime.model_factory.AsyncOpenAI', return_value=client) as factory:
                     result = await consumer.run(self.prepared, self.root/'output', model, budget, provider, max_output_tokens)
                     self.factory_kwargs = factory.call_args.kwargs
                     return result

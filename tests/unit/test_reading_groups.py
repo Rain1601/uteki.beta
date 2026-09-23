@@ -1,4 +1,5 @@
 import unittest
+from itertools import permutations
 from pathlib import Path
 from uteki.agents.document_reader import DocumentReader
 from uteki.agents.reading_groups import build_reading_groups
@@ -7,6 +8,17 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class ReadingGroupsTests(unittest.TestCase):
+    @staticmethod
+    def synthetic_reader(blocks, *, node_start=0, node_end=None):
+        reader = DocumentReader.__new__(DocumentReader)
+        reader.blocks = blocks
+        reader.positions = {block['block_id']: i for i, block in enumerate(blocks)}
+        reader.index = {'index_id': 'synthetic-reading-overlap'}
+        reader.nodes = {'section': {'start_block_id': blocks[node_start]['block_id'],
+                                    'end_block_id': blocks[node_end if node_end is not None else -1]['block_id']}}
+        reader.groups = build_reading_groups(blocks, [])
+        return reader
+
     def test_competition_list_is_complete(self):
         r = DocumentReader(ROOT / 'data/source_documents/alphabet_2025_10k/indexes/v0.1')
         b = r.blocks[116]
@@ -30,3 +42,48 @@ class ReadingGroupsTests(unittest.TestCase):
         blocks=[{'block_id':'a','type':'paragraph','text':'Unrelated.'},
                 {'block_id':'b','type':'paragraph','text':'•example'}]
         self.assertEqual(build_reading_groups(blocks,[])[0]['block_ids'], ['b'])
+
+    def test_table_note_expands_into_complete_list(self):
+        blocks = [{'block_id': str(i), 'type': kind, 'text': text}
+                  for i, (kind, text) in enumerate([
+                      ('paragraph', 'Previous context.'),
+                      ('heading_candidate', 'Financial information'),
+                      ('table', 'Reported values'),
+                      ('paragraph', 'Note: the following conditions apply:'),
+                      ('list_item', '• First condition'),
+                      ('list_item', '• Second condition'),
+                      ('heading_candidate', 'Next section')])]
+        reader = self.synthetic_reader(blocks)
+        self.assertEqual([group['kind'] for group in reader.groups], ['list_context', 'table_context'])
+        result = reader.read('section', '2', count=1)
+        self.assertEqual([block['block_id'] for block in result['blocks']], ['1', '2', '3', '4', '5'])
+        self.assertEqual(result['reading_groups'], reader.groups)
+        self.assertEqual((result['previous_block_id'], result['next_block_id']), ('0', '6'))
+
+    def test_overlapping_group_closure_is_independent_of_group_order(self):
+        blocks = [{'block_id': str(i), 'type': 'paragraph', 'text': str(i)} for i in range(7)]
+        reader = self.synthetic_reader(blocks)
+        groups = [{'group_id': name, 'block_ids': ids} for name, ids in (
+            ('left', ['1', '2']), ('middle', ['2', '3']),
+            ('right', ['3', '4']), ('nested', ['2']))]
+        for order in permutations(groups):
+            with self.subTest(order=[group['group_id'] for group in order]):
+                reader.groups = list(order)
+                result = reader.read('section', '4', count=1)
+                self.assertEqual([block['block_id'] for block in result['blocks']], ['1', '2', '3', '4'])
+                self.assertEqual(result['reading_groups'], list(order))
+                self.assertEqual((result['previous_block_id'], result['next_block_id']), ('0', '5'))
+
+    def test_expansion_respects_node_and_does_not_join_adjacent_groups(self):
+        blocks = [{'block_id': str(i), 'type': 'paragraph', 'text': str(i)} for i in range(7)]
+        reader = self.synthetic_reader(blocks, node_start=1, node_end=5)
+        reader.groups = [
+            {'group_id': 'outside-left', 'block_ids': ['0', '1', '2']},
+            {'group_id': 'inside', 'block_ids': ['2', '3']},
+            {'group_id': 'adjacent', 'block_ids': ['4', '5']},
+            {'group_id': 'outside-right', 'block_ids': ['3', '4', '5', '6']},
+        ]
+        result = reader.read('section', '2', count=1)
+        self.assertEqual([block['block_id'] for block in result['blocks']], ['2', '3'])
+        self.assertEqual([group['group_id'] for group in result['reading_groups']], ['inside'])
+        self.assertEqual((result['previous_block_id'], result['next_block_id']), ('1', '4'))

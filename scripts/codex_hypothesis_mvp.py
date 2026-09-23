@@ -9,8 +9,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from uteki.agents.document_reader import DocumentReader
-from uteki.agents.material_library import pin_materials
+from uteki.agents.reading.document_reader import DocumentReader
+from uteki.agents.reading.material_library import pin_materials
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'experiments/analysis_comparison/codex-hypothesis-2025-2026-v0.1'

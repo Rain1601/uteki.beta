@@ -16,9 +16,9 @@ def render():
         for e in a['_evidence']:
             seed['evidence'][e['id']]={**e,'url':source_link(a,e),'document':label}
     seed['identity']=digest(json.dumps(seed['hashes'],sort_keys=True).encode())[:16]+'-revision-demo-v1'
-    assets=ROOT/'apps/review_workbench'
-    css=(assets/'revision_demo.css').read_text()
-    js=(assets/'revision_demo.js').read_text()
+    assets=ROOT/'apps/review_workbench/static'
+    css=(assets/'css/revision_demo.css').read_text()
+    js=(assets/'js/revision_demo.js').read_text()
     page='''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Alphabet · 年度研究修订 Demo</title><style>__CSS__</style></head><body class="rd">
     <header><div><a class="rd-brand" href="/companies/alphabet?tab=research">Uteki / Alphabet</a><small>年度主报告与验证报告 / Research & verification</small></div><div class="rd-links"><a href="review.html">原研究实验 / Research</a><button id="export">导出操作记录 / Export</button><button id="reset">重置演示 / Reset</button></div></header>
     <div class="rd-demo-note"><p><b>真实报告 · 隔离交互 Demo</b>　研究来自已完成的年报、Q1、Q2 实验；本页没有新调用模型。v1 的“生效”是演示设定，不是正式采纳。</p><p>请从 Q1 的一条建议开始：修订 → 保存候选 → 确认生效 → 查看 Q2 待复核。仅演示 Q1 到年度主报告的修订，Q2 保留原实验结果。</p><p id="storage"></p></div>

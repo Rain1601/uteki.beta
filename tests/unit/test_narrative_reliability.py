@@ -101,6 +101,34 @@ class ReliabilityTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True), self.assertRaises(ValueError):
             load_aihubmix_key(self.root)
 
+    def test_aihubmix_alias_is_loaded_and_conflicts_rejected(self):
+        path = self.root / '.env'
+        path.write_text('AI_HUB_MIX_API_KEY="test-alias"\n')
+        path.chmod(0o600)
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(load_aihubmix_key(self.root), 'local_env_file')
+            self.assertEqual(os.environ['AIHUBMIX_API_KEY'], 'test-alias')
+        with patch.dict(os.environ, {'AI_HUB_MIX_API_KEY': 'env-alias'}, clear=True):
+            self.assertEqual(load_aihubmix_key(self.root), 'environment')
+            self.assertEqual(os.environ['AIHUBMIX_API_KEY'], 'env-alias')
+        path.write_text('AI_HUB_MIX_API_KEY=first\nAIHUBMIX_API_KEY=second\n')
+        with patch.dict(os.environ, {}, clear=True), self.assertRaisesRegex(ValueError, 'Conflicting'):
+            load_aihubmix_key(self.root)
+
+    def test_record_only_preserves_unknown_and_enforced_mode_still_blocks(self):
+        path = self.root / 'budget.sqlite'
+        budget = RunBudget(path, '1')
+        token = budget.reserve('.5')
+        budget.settle(token, None)
+        observed = RunBudget(path, '1', enforce=False)
+        token = observed.reserve('2')
+        observed.settle(token, '.1')
+        self.assertEqual(observed.summary()['requests'], 2)
+        self.assertEqual(observed.summary()['unknown_requests'], 1)
+        self.assertEqual(observed.summary()['enforcement'], 'record_only')
+        with self.assertRaises(BudgetExceeded):
+            budget.reserve('.01')
+
     def _run_fake(self, repair_valid=True):
         cited = Paragraph(text='A conditional claim', kind='inference', citations=[
             Citation(document_id='doc',index_id='idx',block_id='bad',quote='')])

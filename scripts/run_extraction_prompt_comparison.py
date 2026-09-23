@@ -8,12 +8,12 @@ from pathlib import Path
 import shutil
 
 from agents import Agent, AgentOutputSchema, ModelSettings, Runner, RunConfig
-from uteki.agents.analysis_comparison import model_adapter
-from uteki.agents.call_costs import MeteredModel, pricing_snapshot, summarize
-from uteki.agents.deepseek_model import json_instructions
-from uteki.agents.document_reader import DocumentReader
-from uteki.agents.local_credentials import load_provider_key
-from uteki.agents.run_budget import RunBudget, BudgetExceeded
+from uteki.agents.runtime.model_factory import model_adapter
+from uteki.agents.runtime.call_costs import MeteredModel, pricing_snapshot, summarize
+from uteki.agents.runtime.deepseek_model import json_instructions
+from uteki.agents.reading.document_reader import DocumentReader
+from uteki.agents.runtime.local_credentials import load_provider_key
+from uteki.agents.runtime.run_budget import RunBudget, BudgetExceeded
 from uteki.infrastructure.research_data.extraction_prompts import Extraction, PROMPTS, validate_extraction
 from uteki.infrastructure.research_data.financial_records import digest
 from run_research_data_consumer_comparison import verify_prepared, save
@@ -122,7 +122,8 @@ async def run(prepared, output):
          'sdk': importlib.metadata.version('openai-agents'), 'client': importlib.metadata.version('openai'),
          'code_sha256': {str(p.relative_to(ROOT)): digest(p.read_bytes()) for p in (
              Path(__file__).resolve(), ROOT/'src/uteki/infrastructure/research_data/extraction_prompts.py',
-             ROOT/'src/uteki/agents/deepseek_model.py', ROOT/'src/uteki/agents/call_costs.py')}})
+             ROOT/'src/uteki/agents/runtime/deepseek_model.py', ROOT/'src/uteki/agents/runtime/call_costs.py',
+             ROOT/'src/uteki/agents/runtime/model_factory.py', ROOT/'src/uteki/agents/runtime/run_budget.py')}})
     rows = []
     for repeat in (1, 2):
         for case in protocol['cases']:

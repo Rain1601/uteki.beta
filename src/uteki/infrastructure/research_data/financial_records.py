@@ -18,7 +18,7 @@ from lxml import html
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
-from uteki.agents.document_reader import DocumentReader
+from uteki.agents.reading.document_reader import DocumentReader
 from uteki.infrastructure.document_sources.sec import normalize_text
 
 VERSION = "financial-records-v0.2"

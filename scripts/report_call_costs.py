@@ -1,7 +1,7 @@
 """Generate create-only cost report; historical backfill makes no model calls."""
 import argparse
 import json
-from uteki.agents.call_costs import cost_report
+from uteki.agents.runtime.call_costs import cost_report
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

@@ -4,7 +4,7 @@ from html import escape
 import json
 from pathlib import Path
 from render_annual_narrative import render
-from uteki.agents.numeric_review import review_run
+from uteki.agents.analysis.numeric_review import review_run
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT/'experiments/analysis_comparison'

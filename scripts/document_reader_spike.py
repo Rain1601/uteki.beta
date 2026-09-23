@@ -4,14 +4,14 @@ import gzip
 import json
 from pathlib import Path
 from lxml import html
-from uteki.agents.document_reader import DocumentReader, sha
+from uteki.agents.reading.document_reader import DocumentReader, sha
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def reader_hash():
-    return sha(Path(__file__).read_bytes() + (ROOT / 'src/uteki/agents/document_reader.py').read_bytes()
-               + (ROOT / 'src/uteki/agents/reading_groups.py').read_bytes())
+    return sha(Path(__file__).read_bytes() + (ROOT / 'src/uteki/agents/reading/document_reader.py').read_bytes()
+               + (ROOT / 'src/uteki/agents/reading/reading_groups.py').read_bytes())
 
 
 def write_new(path, value):

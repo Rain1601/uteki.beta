@@ -5,7 +5,7 @@ import json
 import traceback
 from agents import Agent,Runner,RunConfig,ModelSettings,function_tool
 from pydantic import BaseModel
-from uteki.agents.analysis_comparison import model_adapter
+from uteki.agents.runtime.model_factory import model_adapter
 
 called=[]
 @function_tool

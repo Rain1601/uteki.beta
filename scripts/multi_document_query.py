@@ -2,7 +2,7 @@
 import argparse
 import json
 from pathlib import Path
-from uteki.agents.document_reader import DocumentReader, sha
+from uteki.agents.reading.document_reader import DocumentReader, sha
 
 ROOT = Path(__file__).resolve().parents[1]
 RUN = ROOT / 'experiments/document_reader/multi-query-v0.1'
@@ -34,7 +34,7 @@ def main():
                  'q5': 'FY2024 and FY2025 Cloud revenue and operating income: verify year headers, metric and USD millions; cross-check overlapping reports.',
                  'q6': '2026 Q2 earnings call explanation: inventory lacks transcript, so stop and report missing material.'},
              'review_status': 'pending', 'reference_status': 'criteria frozen; no independent gold answers',
-             'code_hashes': {str(f.relative_to(ROOT)): sha(f.read_bytes()) for f in [Path(__file__), ROOT/'src/uteki/agents/document_reader.py', ROOT/'src/uteki/agents/reading_groups.py']}})
+             'code_hashes': {str(f.relative_to(ROOT)): sha(f.read_bytes()) for f in [Path(__file__), ROOT/'src/uteki/agents/reading/document_reader.py', ROOT/'src/uteki/agents/reading/reading_groups.py']}})
         print('initialized')
         return
     m = json.loads((RUN / 'manifest.json').read_text())

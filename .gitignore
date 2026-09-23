@@ -35,3 +35,6 @@ data/research_archive/*
 /experiments/research_data_quality/*-visualization-review.json
 /experiments/research_data_quality/*-run-audit.json
 /docs/releases/V0_2_R2A_REPLAY*.json
+
+# Local IDE configuration
+.idea/

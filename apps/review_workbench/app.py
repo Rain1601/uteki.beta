@@ -1,4 +1,5 @@
 from __future__ import annotations
+from apps.review_workbench.assets import asset_text
 
 import argparse
 import gzip
@@ -10,18 +11,18 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from apps.review_workbench.company_universe import render_company_universe_page
-from apps.review_workbench.company_data import render_company_data, render_document_status
-from apps.review_workbench.research_archive_ui import render_archive
-from apps.review_workbench.visual_system import workbench_page, theme_html
-from apps.review_workbench.research_archive_import import import_rows
+from apps.review_workbench.pages.company_universe import render_company_universe_page
+from apps.review_workbench.pages.company_data import render_company_data, render_document_status
+from apps.review_workbench.pages.research_archive_ui import render_archive
+from apps.review_workbench.components.visual_system import workbench_page, theme_html
+from apps.review_workbench.data.research_archive_import import import_rows
 from uteki.agents.research_archive import Store, ArchiveError, ConflictError
-from apps.review_workbench.document_library import index_url, resolve_index
+from apps.review_workbench.data.document_library import index_url, resolve_index
 from uteki.agents.material_library import load_catalog
-from apps.review_workbench.earnings_reader import render_transcript
-from apps.review_workbench.cloud_spike import render_cloud_spike
-from apps.review_workbench.cloud_analysis import render_cloud_analysis
-from apps.review_workbench.document_index import (
+from apps.review_workbench.pages.earnings_reader import render_transcript
+from apps.review_workbench.pages.cloud_spike import render_cloud_spike
+from apps.review_workbench.pages.cloud_analysis import render_cloud_analysis
+from apps.review_workbench.pages.document_index import (
     load_jsonl,
     render_document_index_page,
     render_index_source_document,
@@ -98,77 +99,7 @@ def render_original_source_document(raw_html: str, excerpt: dict) -> str:
         for item in excerpt["paragraphs"]
     ]
     payload = json.dumps(evidence_blocks, ensure_ascii=False).replace("</", "<\\/")
-    bridge = f"""<style id="uteki-source-style">
-html{{scroll-behavior:smooth}}body{{padding-top:36px!important}}
-#uteki-source-status{{position:fixed;z-index:2147483647;left:0;right:0;top:0;height:36px;display:flex;align-items:center;gap:9px;padding:0 14px;background:#f3f7f4;border-bottom:1px solid #cbd7cf;color:#365244;font:11px/1.2 Arial,sans-serif}}
-#uteki-source-status b{{color:#175c3f}}#uteki-source-status span:last-child{{margin-left:auto;color:#6d756f}}
-[data-uteki-covered].uteki-focus,.uteki-translation.uteki-focus{{outline:3px solid #e7c53b!important;outline-offset:5px;background:#fff8cf!important}}
-.uteki-translation{{display:none;margin:8pt 0;padding:10pt 12pt;border-left:3px solid #2b7657;background:#f2f8f4;color:#17231c;font-family:Arial,'PingFang SC',sans-serif;font-size:10pt;line-height:1.65;text-align:left}}
-.uteki-translation:before{{content:'中文候选译文 · 对应 SEC 原文';display:block;margin-bottom:5pt;color:#2b7657;font-size:7.5pt;font-weight:700;letter-spacing:.04em}}
-body.uteki-zh .uteki-translation{{display:block}}body.uteki-zh [data-uteki-covered]:not([data-uteki-table]){{display:none!important}}
-body:not(.uteki-zh) .uteki-translation{{display:none!important}}
-::highlight(uteki-evidence){{background:#ffe36e;color:#101713}}
-.uteki-exact-fallback{{background:#ffe36e!important;color:#101713!important}}
-</style><script id="uteki-source-bridge">
-const UTEKI_BLOCKS={payload};
-const normalize=value=>(value||'').replace(/\\u00a0/g,' ').replace(/\\s+/g,' ').trim();
-const compact=value=>normalize(value).replace(/\\s/g,'');
-const blockByOrdinal=new Map();
-let currentLanguage='zh';
-let fallbackHighlights=[];
-function textMap(root){{
-  const walker=document.createTreeWalker(root,4,{{acceptNode(node){{
-    return node.parentElement?.closest('#uteki-source-status,.uteki-translation')?2:1;
-  }}}});
-  let output='',node,mapping=[];
-  while(node=walker.nextNode()){{
-    for(let offset=0;offset<node.data.length;offset++){{
-      const char=node.data[offset];
-      if(/\\s/.test(char))continue;
-      output+=char;mapping.push({{node,offset}});
-    }}
-  }}
-  return {{text:output.trim(),mapping}};
-}}
-function locateBlocks(){{
-  const elements=Array.from(document.querySelectorAll('body div,body p,body li,body td'));
-  for(const block of UTEKI_BLOCKS){{
-    const needle=compact(block.text);
-    const target=elements
-      .filter(element=>!element.closest('#uteki-source-status,.uteki-translation')&&compact(element.textContent).includes(needle))
-      .sort((left,right)=>normalize(left.textContent).length-normalize(right.textContent).length)[0];
-    if(!target)continue;
-    target.dataset.utekiOrdinals=[target.dataset.utekiOrdinals,block.ordinal].filter(Boolean).join(',');target.dataset.utekiCovered='true';
-    if(target.querySelector('table'))target.dataset.utekiTable='true';
-    const translation=document.createElement('div');translation.className='uteki-translation';translation.dataset.utekiOrdinal=block.ordinal;translation.textContent=block.translation_zh;
-    target.before(translation);blockByOrdinal.set(String(block.ordinal),{{target,translation}});
-  }}
-}}
-function highlight(root,quote){{
-  if(!root||!quote)return;
-  const needle=compact(quote);if(!compact(root.textContent).includes(needle))return;
-  if(window.CSS?.highlights){{
-    const value=textMap(root),start=value.text.indexOf(needle),first=value.mapping[start],last=value.mapping[start+needle.length-1];if(!first||!last)return;
-    const range=document.createRange();range.setStart(first.node,first.offset);range.setEnd(last.node,last.offset+1);CSS.highlights.set('uteki-evidence',new Highlight(range));return;
-  }}
-  const candidates=[...root.querySelectorAll('span,td,th')].filter(element=>{{const value=compact(element.textContent);return value&&(needle.includes(value)||value.includes(needle))}});
-  fallbackHighlights=candidates.filter(element=>!candidates.some(other=>other!==element&&element.contains(other)));if(!fallbackHighlights.length)fallbackHighlights=[root];fallbackHighlights.forEach(element=>element.classList.add('uteki-exact-fallback'));
-}}
-function clearHighlight(){{
-  if(window.CSS?.highlights)CSS.highlights.delete('uteki-evidence');
-  fallbackHighlights.forEach(element=>element.classList.remove('uteki-exact-fallback'));fallbackHighlights=[];
-}}
-function focusEvidence(message){{
-  currentLanguage=message.language||currentLanguage;document.body.classList.toggle('uteki-zh',currentLanguage==='zh');
-  document.querySelectorAll('.uteki-focus').forEach(value=>value.classList.remove('uteki-focus'));clearHighlight();
-  const block=blockByOrdinal.get(String(message.ordinal));if(!block)return;
-  const target=currentLanguage==='zh'?block.translation:block.target;target.classList.add('uteki-focus');highlight(target,currentLanguage==='zh'?message.quoteZh:message.quoteEn);target.scrollIntoView({{behavior:'smooth',block:'center'}});
-}}
-window.addEventListener('message',event=>{{if(event.data?.type==='uteki-focus')focusEvidence(event.data);if(event.data?.type==='uteki-language'){{currentLanguage=event.data.language;document.body.classList.toggle('uteki-zh',currentLanguage==='zh')}}}});
-window.addEventListener('DOMContentLoaded',()=>{{
-  const status=document.createElement('div');status.id='uteki-source-status';status.innerHTML=`<b>SEC 10-K · 原始版式</b><span>中文证据译文 ${{UTEKI_BLOCKS.length}} / 1311</span><span>未覆盖内容保留英文</span>`;document.body.prepend(status);locateBlocks();parent.postMessage({{type:'uteki-source-ready',located:blockByOrdinal.size,total:UTEKI_BLOCKS.length}},'*');
-}});
-</script>"""
+    bridge = f"""<style id="uteki-source-style">{asset_text('source_bridge.css')}</style><script id="uteki-source-bridge">{asset_text('source_bridge.js').replace('__UTEKI_DATA_JSON__', payload)}</script>"""
     marker = "</head>"
     if marker not in raw_html.lower():
         raise ValueError("SEC source HTML has no closing head element")
@@ -333,53 +264,9 @@ def page_shell(body: str, data: dict, bundle: dict, release_manifest: dict) -> s
     counts = release_manifest["counts"]
     metadata = f"""Alphabet · FY2025 10-K · Business Map {esc(bundle['business_map_version'])} · {counts['claims']} {bilingual('claims','条 Claims')} · {counts['metrics']} {bilingual('metrics','项 Metrics')} · {counts['evidence_links']} {bilingual('evidence','条 Evidence')}"""
     return f"""<!doctype html><html lang='zh'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Uteki · Alphabet Data Agent Result</title>
-<style>
-:root{{--ink:#202420;--soft:#555d56;--muted:#79807a;--line:#e1e5e1;--line2:#cbd1cc;--paper:#fff;--wash:#f7f8f6;--green:#1d6548;--green2:#e9f3ed;--yellow:#fff7cf}}*{{box-sizing:border-box}}html,body{{height:100%}}body{{margin:0;background:var(--wash);color:var(--ink);font:13px/1.5 ui-sans-serif,-apple-system,"PingFang SC","Segoe UI",sans-serif}}[data-lang=zh]{{display:none}}body.zh [data-lang=en]{{display:none}}body.zh [data-lang=zh]{{display:inline}}button{{font:inherit}}header{{height:54px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 18px;gap:28px}}.brand{{font-weight:750}}.brand i{{font-style:normal;color:var(--green)}}.page-name{{font-weight:650}}.status{{color:var(--green);background:var(--green2);padding:3px 7px;border-radius:4px;font-size:10px}}.meta{{margin-left:auto;color:var(--muted);font-size:11px}}.lang button{{border:0;background:none;color:var(--muted);padding:4px;cursor:pointer}}.lang button.on{{color:var(--ink);font-weight:700}}.split{{height:calc(100vh - 54px);display:grid;grid-template-columns:minmax(430px,45%) minmax(470px,55%)}}.knowledge-pane,.source-pane{{min-width:0;background:var(--paper)}}.knowledge-pane{{overflow:auto;border-right:1px solid var(--line2)}}.source-pane{{overflow:hidden;display:flex;flex-direction:column;background:#fafbf9}}.pane-head{{position:sticky;top:0;z-index:4;background:#fffd;backdrop-filter:blur(12px);min-height:68px;padding:13px 18px;border-bottom:1px solid var(--line)}}.pane-head h1{{font-size:15px;margin:0}}.pane-head p{{font-size:11px;color:var(--muted);margin:3px 0 0}}.source-head{{position:relative;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px}}.source-actions{{display:flex;align-items:center;gap:8px}}.source-head a{{color:var(--green);text-decoration:none}}.view-switch{{display:flex;border:1px solid var(--line2);border-radius:5px;padding:2px;background:#f3f5f2}}.view-switch button{{border:0;background:transparent;color:var(--muted);padding:4px 8px;border-radius:3px;font-size:10px;cursor:pointer}}.view-switch button.on{{background:#fff;color:var(--ink);font-weight:650;box-shadow:0 1px 2px #0001}}.tree-wrap{{padding:10px;border-bottom:1px solid var(--line)}}ul.tree,.tree ul{{list-style:none;margin:0;padding-left:0}}.tree ul{{padding-left:20px}}.tree li{{position:relative}}.toggle,.toggle-space{{position:absolute;left:0;top:7px;width:18px;height:22px;border:0;background:none;color:var(--muted);cursor:pointer}}li.collapsed>ul{{display:none}}li.collapsed>.toggle{{transform:rotate(-90deg)}}.tree-node{{width:calc(100% - 20px);margin-left:20px;display:flex;align-items:center;gap:8px;text-align:left;border:0;background:none;padding:6px 8px;border-radius:5px;color:var(--ink);cursor:pointer}}.tree-node:hover{{background:#f2f4f2}}.tree-node.active{{background:var(--green2);color:#174d38}}.node-main{{min-width:0;flex:1}}.node-main strong,.node-main small{{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.node-main small{{font:8px ui-monospace,monospace;color:var(--muted);text-transform:uppercase}}.node-metric{{font:10px ui-monospace,monospace;color:var(--muted)}}.knowledge-detail{{display:none;padding:22px 20px 70px}}.knowledge-detail.active{{display:block}}.detail-kicker{{font:9px ui-monospace,monospace;text-transform:uppercase;color:var(--green)}}h2{{font:600 27px/1.2 Georgia,"Songti SC",serif;margin:3px 0 5px}}.detail-heading p{{color:var(--muted);margin:0 0 20px}}.claim-list{{border-top:1px solid var(--line2)}}.claim{{border-bottom:1px solid var(--line)}}.claim-main{{width:100%;border:0;background:#fff;padding:12px 2px;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;text-align:left;color:var(--ink);cursor:pointer}}.claim-main:hover{{background:#fafbf9}}.claim-label{{display:block;color:var(--muted);font-size:10px;margin-bottom:3px}}.claim-main strong{{display:block;font-weight:550;line-height:1.55}}.claim-meta{{flex:none;display:flex;align-items:center;gap:5px;padding-top:2px}}.claim-meta i,.claim-meta b{{font-style:normal;font-weight:500;font-size:9px;padding:3px 5px;border-radius:3px}}.claim-meta i{{color:var(--green);background:var(--green2)}}.claim-meta b{{color:var(--muted);border:1px solid var(--line)}}.evidence-cards{{display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:0 0 12px}}.claim.active .evidence-cards{{display:grid}}.claim.active>.claim-main{{color:var(--green)}}.evidence-card{{border:1px solid var(--line);background:#fbfcfa;color:var(--ink);border-radius:5px;padding:8px;text-align:left;cursor:pointer;min-width:0}}.evidence-card:hover,.evidence-card.active{{border-color:#83a994;background:var(--green2)}}.evidence-index{{font:700 9px ui-monospace,monospace;color:var(--green);margin-right:6px}}.evidence-location{{font-size:9px;color:var(--muted)}}.evidence-snippet{{display:block;margin-top:5px;font:11px/1.45 Georgia,"Songti SC",serif;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}.source-notice{{padding:10px 18px;border-bottom:1px solid #eadf9b;background:#fffbed;color:#665c2b;font-size:10px}}.structured-view{{display:none;min-height:0;flex:1;overflow:auto}}body.view-structured .structured-view{{display:block}}.source-document{{max-width:850px;margin:auto;padding:10px 28px 90px;background:#fff;min-height:100%}}.original-frame{{display:none;width:100%;min-height:0;flex:1;border:0;background:#fff}}body.view-original .original-frame{{display:block}}.source-empty{{padding:80px 20px;text-align:center;color:var(--muted)}}.source-row{{display:none;grid-template-columns:48px 1fr;padding:24px 0;border-bottom:1px solid var(--line);scroll-margin:100px}}.source-row.relevant{{display:grid}}.source-row.active{{background:var(--yellow);box-shadow:0 0 0 11px var(--yellow)}}.source-marker{{font:10px ui-monospace,monospace;color:var(--muted);padding-top:3px;display:flex;flex-direction:column;align-items:flex-start;gap:8px}}.source-marker span{{width:16px;height:2px;background:var(--line2)}}.source-path{{font-size:10px;color:var(--muted)}}.source-translation{{display:none;font:15px/1.75 Georgia,"Songti SC",serif;margin:8px 0 12px}}body.zh .source-translation{{display:block}}.original-label{{font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:8px}}body:not(.zh) .original-label{{display:none}}.source-original{{font:15px/1.68 Georgia,"Songti SC",serif;margin:6px 0;color:var(--ink)}}body.zh .source-original{{font-size:12px;line-height:1.6;color:var(--muted);padding-left:10px;border-left:2px solid var(--line)}}.source-hash{{font:9px ui-monospace,monospace;color:#989e99;margin-top:9px}}@media(max-width:900px){{header{{gap:10px;padding:0 10px}}.meta{{display:none}}.split{{grid-template-columns:360px minmax(430px,1fr)}}.evidence-cards{{grid-template-columns:1fr}}.source-document{{padding:8px 18px 70px}}}}
-body.zh .source-notice[data-lang=zh]{{display:block}}
-mark{{background:#ffe36e;color:#1d251f;padding:1px 2px;border-radius:2px}}
-</style></head><body>
+<style>{asset_text('result.css')}</style></head><body>
 <header><div class='brand'><i>Uteki</i> / Data</div><div class='page-name'>{bilingual('Data Agent result','Data Agent 解析结果')}</div><span class='status'>{esc(research_data_status_label(release_manifest))}</span><div class='meta'>{metadata}</div><div class='lang'><button id='en'>EN</button><button id='zh'>中文</button></div></header>{body}
-<script>
-const body=document.body;
-let currentLanguage='zh',currentView='original',currentFocus=null,sourceReady=false;
-const sourceFrame=document.querySelector('.original-frame');
-function sendToSource(message){{if(sourceReady&&sourceFrame?.contentWindow)sourceFrame.contentWindow.postMessage(message,'*')}}
-function language(value){{currentLanguage=value;body.classList.toggle('zh',value==='zh');document.querySelectorAll('.lang button').forEach(button=>button.classList.toggle('on',button.id===value));localStorage.setItem('uteki-lang',value);sendToSource({{type:'uteki-language',language:value}});if(currentFocus)sendFocus()}}
-function setView(value){{currentView=value;body.classList.toggle('view-original',value==='original');body.classList.toggle('view-structured',value==='structured');document.querySelectorAll('.view-switch button').forEach(button=>button.classList.toggle('on',button.dataset.view===value));localStorage.setItem('uteki-source-view',value);if(value==='original'&&currentFocus)sendFocus();if(value==='structured'&&currentFocus)focusStructured(currentFocus)}}
-function sendFocus(){{if(!currentFocus)return;sendToSource({{type:'uteki-focus',language:currentLanguage,ordinal:currentFocus.ordinal,quoteEn:currentFocus.quoteEn,quoteZh:currentFocus.quoteZh}})}}
-function markExact(element,needle){{
-  if(!element)return;const raw=element.dataset.raw||element.textContent;element.dataset.raw=raw;element.textContent='';const index=needle?raw.indexOf(needle):-1;
-  if(index<0){{element.textContent=raw;return}}element.append(document.createTextNode(raw.slice(0,index)));const mark=document.createElement('mark');mark.textContent=needle;element.append(mark,document.createTextNode(raw.slice(index+needle.length)));
-}}
-function focusStructured(focus){{
-  const row=document.querySelector(`.source-row[data-paragraph="${{focus.ordinal}}"]`);if(!row)return;
-  row.classList.add('active');markExact(row.querySelector('.source-original'),focus.quoteEn);markExact(row.querySelector('.source-translation'),focus.quoteZh);row.scrollIntoView({{behavior:'smooth',block:'center'}});
-}}
-function showClaim(claim,focusOrdinal,focusEvidence){{
-  document.querySelectorAll('.claim').forEach(value=>value.classList.remove('active'));claim.classList.add('active');
-  document.querySelectorAll('.source-original,.source-translation').forEach(value=>{{if(value.dataset.raw)value.textContent=value.dataset.raw}});
-  const ordinals=claim.dataset.ordinals.split(',').filter(Boolean);
-  document.querySelectorAll('.source-row').forEach(row=>{{row.classList.toggle('relevant',ordinals.includes(row.dataset.paragraph));row.classList.remove('active')}});
-  const sourceDocument=document.querySelector('.source-document');ordinals.forEach(ordinal=>{{const value=document.querySelector(`.source-row[data-paragraph="${{ordinal}}"]`);if(value)sourceDocument.appendChild(value)}});
-  const target=String(focusOrdinal||ordinals[0]||'');const cards=Array.from(claim.querySelectorAll('.evidence-card'));const activeCard=cards.find(card=>focusEvidence?card.dataset.evidence===focusEvidence:card.dataset.ordinal===target)||cards[0];
-  const anchor=activeCard?.querySelector('.evidence-snippet');currentFocus={{ordinal:target,quoteEn:anchor?.dataset.quoteEn||'',quoteZh:anchor?.dataset.quoteZh||''}};
-  if(currentView==='structured')focusStructured(currentFocus);else sendFocus();
-  document.querySelectorAll('.evidence-card').forEach(card=>card.classList.toggle('active',card===activeCard));
-}}
-function selectNode(button){{
-  document.querySelectorAll('.tree-node').forEach(value=>value.classList.remove('active'));document.querySelectorAll('.knowledge-detail').forEach(value=>value.classList.remove('active'));button.classList.add('active');
-  const detail=document.querySelector(`[data-detail="${{button.dataset.select}}"]`);detail.classList.add('active');const first=detail.querySelector('.claim');if(first)showClaim(first);
-}}
-document.getElementById('en').onclick=()=>language('en');document.getElementById('zh').onclick=()=>language('zh');
-document.querySelectorAll('.view-switch button').forEach(button=>button.onclick=()=>setView(button.dataset.view));
-document.querySelectorAll('.toggle').forEach(button=>button.onclick=event=>{{event.stopPropagation();button.closest('li').classList.toggle('collapsed')}});
-document.querySelectorAll('.tree-node').forEach(button=>button.onclick=()=>selectNode(button));
-document.querySelectorAll('.claim-main').forEach(button=>button.onclick=()=>showClaim(button.closest('.claim')));
-document.querySelectorAll('.evidence-card').forEach(button=>button.onclick=event=>{{event.stopPropagation();showClaim(button.closest('.claim'),button.dataset.ordinal,button.dataset.evidence)}});
-window.addEventListener('message',event=>{{if(event.data?.type==='uteki-source-ready'){{sourceReady=true;sendFocus()}}}});
-language(localStorage.getItem('uteki-lang')||'zh');setView(localStorage.getItem('uteki-source-view')||'original');
-selectNode(document.querySelector('.tree-node.active'));
-</script></body></html>"""
+<script>{asset_text('result.js')}</script></body></html>"""
 
 
 @workbench_page('result')
@@ -465,7 +352,7 @@ def make_handler(data_path: Path, archive_path: Path | None = None):
 
         def workspace_route(self, parsed):
             """Canonical product pages; legacy research URLs remain readable."""
-            from apps.review_workbench.site_navigation import (
+            from apps.review_workbench.components.site_navigation import (
                 render_company_overview, render_materials, render_structured,
                 render_reports, company_tabs, crumb)
             from urllib.parse import unquote
@@ -480,7 +367,7 @@ def make_handler(data_path: Path, archive_path: Path | None = None):
                 self.end_headers()
                 self.wfile.write(body)
             if path == '/':
-                from apps.review_workbench.attention_dashboard import render_dashboard
+                from apps.review_workbench.pages.attention_dashboard import render_dashboard
                 send(render_dashboard(load_json(COMPANY_UNIVERSE_DATA), archive.list()))
                 return True
             legacy_target = None
@@ -527,10 +414,24 @@ def make_handler(data_path: Path, archive_path: Path | None = None):
                         self.send_error(404, 'Unknown PDF'); return True
                     send(target.read_bytes(), 'application/pdf')
             elif section == 'data':
-                from apps.review_workbench.query_runs import collections
-                send(render_structured(company, bundle, query_views=bool(collections(ROOT / 'data/query_views', company['id']))))
+                from apps.review_workbench.pages.query_runs import collections
+                from apps.review_workbench.pages.acceptance_view import registrations
+                send(render_structured(company, bundle,
+                    query_views=bool(collections(ROOT / 'data/query_views', company['id'])),
+                    acceptance_views=bool(registrations(ROOT / 'data/acceptance_views', company['id']))))
+            elif section == 'data/acceptance':
+                from apps.review_workbench.pages.acceptance_view import render_acceptance
+                try:
+                    if set(query) - {'collection'} or any(len(v) != 1 for v in query.values()):
+                        raise KeyError('Ambiguous acceptance selection')
+                    send(render_acceptance(ROOT, ROOT / 'data/acceptance_views', company,
+                                           query.get('collection', [None])[0]))
+                except KeyError:
+                    self.send_error(404, 'Unknown saved acceptance selection')
+                except (OSError, ValueError):
+                    self.send_error(503, 'Acceptance artifacts unavailable or changed')
             elif section == 'data/queries':
-                from apps.review_workbench.query_runs import render_query_runs
+                from apps.review_workbench.pages.query_runs import render_query_runs
                 try:
                     keys = ('collection', 'run', 'case')
                     selection = {key: query[key][0] for key in keys} if query else None
@@ -540,7 +441,7 @@ def make_handler(data_path: Path, archive_path: Path | None = None):
                 except (OSError, ValueError):
                     self.send_error(503, 'Saved query artifacts unavailable or changed')
             elif section == 'data/dataset':
-                from apps.review_workbench.dataset_view import render_dataset
+                from apps.review_workbench.pages.dataset_view import render_dataset
                 try:
                     send(render_dataset(ROOT, ROOT / 'data/query_views', company,
                                         query['collection'][0], query.get('record', [None])[0]))
@@ -630,7 +531,7 @@ def make_handler(data_path: Path, archive_path: Path | None = None):
                         body = (render_transcript(doc,index,blocks,assets,base) if doc.get('source_format') == 'pdf' else render_document_index_page(index, blocks, assets, doc['source_url'],
                             document_index_status_label(manifest), title=doc['title'],
                             source_path=base + '/source', asset_prefix=base + '/assets/')).encode()
-                        from apps.review_workbench.site_navigation import crumb, company_tabs
+                        from apps.review_workbench.components.site_navigation import crumb, company_tabs
                         company = next(c for c in load_json(COMPANY_UNIVERSE_DATA)['companies'] if c['id'] == 'alphabet')
                         context = '<div class="company-context">' + crumb(company, ('材料库 / 文档目录', 'Materials / Document outline')) + company_tabs(company['id'], 'materials') + '</div>'
                         body = body.decode().replace('</nav>', '</nav>' + context, 1).encode()

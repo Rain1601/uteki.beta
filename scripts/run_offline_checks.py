@@ -20,6 +20,7 @@ CORE_TESTS = (
     "tests.test_research_archive_ui",
     "tests.test_research_workflow_smoke",
     "tests.test_visual_system",
+    "tests.test_workbench_structure",
     "tests.test_workspace_check",
     "tests.unit.test_annual_context",
     "tests.unit.test_annual_narrative_runner",

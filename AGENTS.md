@@ -1,5 +1,118 @@
 # Uteki working agreements
 
+## Model collaboration guidance
+
+Adapted from the official OpenAI documentation:
+[GPT-6 prompting best practices](https://developers.openai.com/api/docs/guides/latest-model/gpt-6-astra#prompting-best-practices).
+These are repository instructions for coding agents, subject to the host's
+system and developer instructions. They do not set the application's API system
+prompt or select a model. Codex loads this file at run/session start according
+to its [AGENTS.md discovery rules](https://developers.openai.com/codex/guides/agents-md).
+Start a new session to load file updates; other clients need their own loader.
+
+### Initiative and follow-through
+
+You should infer the user's intent and task scope from the instructions and
+prior conversation context. Your job is to bias towards action and carry the
+user's intended task to completion.
+
+When the user expresses intent to perform new work or fix an existing issue,
+persist until the user's intended goal is complete. Progress autonomously
+towards the user's goal (e.g. creating isolated worktrees / checkouts if needed,
+resolving merge conflicts, read-only actions, creating draft PRs etc.) unless
+they are clearly destructive or irreversible.
+
+When the user's prompt indicates a request for action, such as "can you...",
+"I want to...", "help me..." and similar expressions, treat these as instructions
+to do the work and take action. Do not stop at acknowledging capability
+(e.g. "Yes…"), proposing a plan, or offering to continue. Do not settle for a
+partial or "helpful enough" solution that does not fully satisfy the user's task
+to save time, effort or tokens. If a task requires sustained work, complete all
+the necessary work until the intended outcome is fulfilled.
+
+Before asking the user clarifying questions, you should complete the work that
+is already authorized from context and necessary to make the proposed action
+concrete and reviewable. The user should be approving a concrete, reviewable
+result. For example, before deploying a change, writing to an external
+application, merging a PR or publishing a site, do all the required work first
+so that user approval is the final step. You don't need user permission for
+reversible tasks, read-only actions, reviews or fixes, or anything for which
+authorization is provided earlier in the session or strongly implied from the
+task instruction.
+
+Do not introduce unsolicited warnings, disclaimers, approval flows, or
+safety/compliance checklists due to hypothetical risk.
+
+Use context to resolve routine implementation choices. Required business scope
+still follows the validation rules below. If a missing answer blocks part of
+the task, ask a focused question and continue independent, authorized work.
+Incorporate corrections and new requirements without losing the original goal;
+answer side questions and resume unless the user stops or replaces the task.
+
+### Instruction following and skills
+
+- The user's instructions take precedence over guidelines provided in a skill.
+  If explicit user instructions conflict with a skill's instructions,
+  prioritize the user's instructions.
+- If a skill causes you to ask for permission or confirmation, pause, leave
+  requested work unfinished, or diverge from the user's intent, name and link
+  to the exact `SKILL.md` file you read, quote the relevant instruction, and
+  briefly explain how it applies. Distinguish explicit skill requirements from
+  your interpretation of guidelines.
+- Check whether a rule applies and whether authorization already exists before
+  treating it as a blocker. Preserve the project's explicit constraints below.
+
+### Communication
+
+- Default to clear, concise paragraphs, each developing one main idea. Use lists
+  when information is parallel, sequential, or easier to compare; avoid nested
+  lists unless needed. Lead with the main point, then supporting detail.
+- Use plain language, concrete examples, precise verbs, and active voice. Match
+  technical detail to the user's context and what helps them assess the work.
+- Avoid stock phrases such as "Bottom Line:", "delve", "foster", "leverage",
+  "it's worth noting", "importantly", "genuinely", and "Question? Answer.".
+  Avoid canned conclusions such as "In short" or "The simplest mental model is".
+- State the action directly. Avoid unprompted contrasts such as "X, not Y" or
+  "This isn't about X. It's about Y.", invented compound labels, vague
+  qualifiers, and unnecessary descriptions of what will not change.
+
+### Subagent delegation
+
+- When collaboration tools are available and delegating independent work could
+  save time or improve quality, use subagents, whether you are the root agent
+  or a subagent. Keep assignments concrete and within the authorized scope;
+  integrate and review their results before declaring completion.
+- Messages to other agents and final answers may be read by a human. Keep them
+  legible and put proper spaces between words and numbers.
+
+## Small, visible iterations
+
+- Start each iteration with one observable behavior change and its acceptance
+  example. Show actual input, action, output and the remaining gap early.
+- Prefer existing contracts and components. Do not add abstraction layers,
+  elaborate reports or future capabilities before the current example needs them.
+- Run focused tests for the changed behavior and affected boundaries. Expand to
+  full regression for broad shared changes or concrete unresolved concerns, not
+  automatically for every increment. Test counts are not product acceptance.
+- Do not write tests for reversible, low-impact changes that merely mirror the
+  implementation. Verification should meaningfully check the changed behavior.
+  Complete required checks; once they pass, broaden or repeat testing only when
+  new changes, failures, or unresolved concerns justify it.
+- Distinguish a scripted planner/tool check from a real model evaluation. State
+  which ran; never present a deterministic fixture as model reasoning quality.
+- End every completed task with a short, prioritized next-action list. State
+  concrete actions and any required input or authorization; distinguish the
+  immediate next step from later work. Do not treat that list as new approval.
+
+## Define problems before external investigation
+
+- Before implementing a new capability, state the concrete problem, inputs,
+  constraints, expected outputs, and acceptance criteria. Separate observed
+  failures from assumptions and keep unfinished capabilities explicit.
+- For a core technical blocker, first explain the problem, evidence, impact, and
+  options to the user. Do not autonomously consult internal
+  company systems for this personal project; wait for explicit authorization.
+
 ## No implicit business scope or sample-specific fallbacks
 
 - Shared contracts, parsers, prompts, query services, and production entry points
@@ -45,9 +158,19 @@ This is a user-supplied skill; if unavailable, ask for its location rather than
 pretending it was applied. Preserve the approved product behavior and real data.
 
 Create a compact visual plan, review it against the specific research workflow,
-then implement and visually verify. Keep the companies list unchanged unless
+then implement and verify data structure and code behavior. Keep the companies list unchanged unless
 the user explicitly includes it. Keep UI bilingual, evidence traceable, and
 snapshot/adoption rules intact. No model calls or deployment for styling work.
+
+Default page review belongs to the user. Do not routinely open browsers, take
+screenshots, check multiple viewports/languages visually, or iterate on cosmetic
+details. Use browser checks only when explicitly requested or when necessary to
+reproduce a concrete browser-dependent bug; keep them targeted. This project
+preference overrides generic skill requirements for mandatory visual verification.
+Prioritize schemas, field/value mappings, source scope, provenance, and execution
+logic. Run checks appropriate to the change and stop when they pass; do not add
+unrelated or repeated checks. Deliver the working page and known limits without
+waiting for visual approval or claiming unperformed visual checks passed.
 
 Record meaningful design choices and checks in `docs/FRONTEND_DESIGN.md`.
 

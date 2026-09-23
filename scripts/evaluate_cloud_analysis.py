@@ -4,8 +4,8 @@ import json
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
-from uteki.agents.cloud_analysis import AnalysisTools, validate_answer
-from uteki.agents.cloud_recovery import RecoveryTools
+from uteki.agents.analysis.cloud_analysis import AnalysisTools, validate_answer
+from uteki.agents.analysis.cloud_recovery import RecoveryTools
 from uteki.infrastructure.research_data.cloud_spike import digest, encoded
 
 

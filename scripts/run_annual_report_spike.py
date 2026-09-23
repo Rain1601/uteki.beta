@@ -12,11 +12,13 @@ from typing import Literal
 
 from agents import Agent, Runner, RunConfig, ModelSettings
 from pydantic import BaseModel, Field
-from uteki.agents.analysis_comparison import ToolSession, Citation, Claim, Answer, model_adapter, save
-from uteki.agents.call_costs import MeteredModel, pricing_snapshot, summarize
-from uteki.agents.document_reader import sha
-from uteki.agents.narrative_contract import AnnualNarrative
-from uteki.agents.narrative_reader import NarrativeSession
+from uteki.agents.reading.tool_session import ToolSession, save
+from uteki.agents.reading.citations import Citation, Claim, Answer
+from uteki.agents.runtime.model_factory import model_adapter
+from uteki.agents.runtime.call_costs import MeteredModel, pricing_snapshot, summarize
+from uteki.agents.reading.document_reader import sha
+from uteki.agents.analysis.narrative_contract import AnnualNarrative
+from uteki.agents.analysis.narrative_reader import NarrativeSession
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT/'experiments/analysis_comparison/codex-hypothesis-2025-2026-v0.1/annual/materials.json'
@@ -111,9 +113,9 @@ def prepare(output):
         comparison_note='Independent candidate vs manually edited reference; not a controlled quality benchmark',
         repair_attempts=1, semantic_review='required', numeric_review='required',
         code_hashes={str(p.relative_to(ROOT)):sha(p.read_bytes()) for p in
-            [Path(__file__).resolve(),ROOT/'src/uteki/agents/analysis_comparison.py',ROOT/'src/uteki/agents/document_reader.py',ROOT/'src/uteki/agents/call_costs.py',
-             ROOT/'src/uteki/agents/narrative_runner.py',ROOT/'src/uteki/agents/run_budget.py',ROOT/'src/uteki/agents/local_credentials.py',
-             ROOT/'src/uteki/agents/narrative_contract.py',ROOT/'src/uteki/agents/narrative_reader.py',ROOT/'src/uteki/agents/evidence_math.py',ROOT/'src/uteki/agents/numeric_review.py']})
+            [Path(__file__).resolve(),ROOT/'src/uteki/agents/reading/tool_session.py',ROOT/'src/uteki/agents/reading/citations.py',ROOT/'src/uteki/agents/runtime/model_factory.py',ROOT/'src/uteki/agents/reading/document_reader.py',ROOT/'src/uteki/agents/runtime/call_costs.py',
+             ROOT/'src/uteki/agents/analysis/narrative_runner.py',ROOT/'src/uteki/agents/runtime/run_budget.py',ROOT/'src/uteki/agents/runtime/local_credentials.py',
+             ROOT/'src/uteki/agents/analysis/narrative_contract.py',ROOT/'src/uteki/agents/analysis/narrative_reader.py',ROOT/'src/uteki/agents/analysis/evidence_math.py',ROOT/'src/uteki/agents/analysis/numeric_review.py']})
     # Verify pinned indexes are still present before any paid calls.
     session = ToolSession(ROOT,manifest,output)
     session.reader(DOC)
@@ -134,7 +136,7 @@ if __name__ == '__main__':
     if args.prepare_only and args.run_prepared:
         parser.error('Choose preparation or execution')
     if not args.prepare_only:
-        from uteki.agents.local_credentials import load_aihubmix_key
+        from uteki.agents.runtime.local_credentials import load_aihubmix_key
         try:
             load_aihubmix_key(ROOT)
         except ValueError as exc:
@@ -151,8 +153,8 @@ if __name__ == '__main__':
     else:
         manifest=prepare(args.output)
     if not args.prepare_only:
-        from uteki.agents.run_budget import RunBudget
-        from uteki.agents.narrative_runner import run_narrative
+        from uteki.agents.runtime.run_budget import RunBudget
+        from uteki.agents.analysis.narrative_runner import run_narrative
         budget = RunBudget(args.budget_file, args.budget_usd)
         asyncio.run(run_narrative(ROOT, manifest, args.output/'run', report_type=AnnualNarrative,
             prompt=PROMPT, question=QUESTION, compile_sources=compile_sources,

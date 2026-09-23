@@ -11,7 +11,7 @@ import gzip
 import json
 from pathlib import Path
 
-from uteki.agents.document_reader import DocumentReader
+from uteki.agents.reading.document_reader import DocumentReader
 from uteki.infrastructure.research_data.adapters.alphabet_financial import ALPHABET_FINANCIAL_MAPPING
 from uteki.infrastructure.research_data.cloud_spike import extract as old_extract
 from uteki.infrastructure.research_data.financial_records import (
@@ -69,7 +69,7 @@ def run(output):
     save(output / "source-inventory.json", source_manifest)
     code_paths = [Path(__file__).resolve(), ROOT / "src/uteki/infrastructure/research_data/financial_records.py",
                   ROOT / "src/uteki/infrastructure/research_data/transcript_records.py",
-                  ROOT / "src/uteki/agents/document_reader.py", ROOT / "src/uteki/agents/reading_groups.py"]
+                  ROOT / "src/uteki/agents/reading/document_reader.py", ROOT / "src/uteki/agents/reading/reading_groups.py"]
     code_hashes = {str(p.relative_to(ROOT)): digest(p.read_bytes()) for p in code_paths}
     for path in code_paths:
         target = output / "code" / path.name

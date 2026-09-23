@@ -8,7 +8,7 @@ import tempfile
 
 import duckdb
 
-from uteki.agents.document_reader import DocumentReader
+from uteki.agents.reading.document_reader import DocumentReader
 from uteki.domain.research_data.query_contract import DataQuery, ResearchRecord, QueryResult, VERSION
 from .financial_records import digest
 from .adapters.alphabet_query import from_financial, from_prompt, metric_catalog
@@ -162,7 +162,7 @@ def build_dataset(repo: Path, destination: Path, *, spec: Path):
                       Path(__file__).parent / "adapters/alphabet_query.py",
                       Path(__file__).parent / "adapters/alphabet_financial.py",
                       Path(__file__).with_name("financial_records.py"),
-                      repo / "src/uteki/agents/document_reader.py", repo / "src/uteki/agents/reading_groups.py",
+                      repo / "src/uteki/agents/reading/document_reader.py", repo / "src/uteki/agents/reading/reading_groups.py",
                       repo / "src/uteki/domain/research_data/query_contract.py"]
         code_hashes = {str(p.relative_to(repo)): digest(p.read_bytes()) for p in code_files}
         identity = {"schema_version": VERSION, "input_hashes": input_hashes, "adapter_hashes": code_hashes,

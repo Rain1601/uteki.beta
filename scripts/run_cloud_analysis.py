@@ -6,9 +6,9 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from uteki.agents.cloud_analysis import AnalysisTools, PROMPT, QUESTION, VERSION, load_approved, run_agent
+from uteki.agents.analysis.cloud_analysis import AnalysisTools, PROMPT, QUESTION, VERSION, load_approved, run_agent
 from uteki.infrastructure.research_data.cloud_spike import digest, encoded
-from uteki.agents.cloud_recovery import RecoveryTools, RECOVERY_PROMPT, VERSION as RECOVERY_VERSION
+from uteki.agents.analysis.cloud_recovery import RecoveryTools, RECOVERY_PROMPT, VERSION as RECOVERY_VERSION
 from uteki.infrastructure.research_data.cloud_recovery import withhold_fact
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,7 +32,7 @@ def main():
            "snapshot_id": snapshot["snapshot_id"], "snapshot_sha256": digest(encoded(snapshot)),
            "source_snapshot_id": snapshot["source_snapshot_id"], "approval_id": review["review_id"],
            "prompt_sha256": digest(prompt.encode()),
-           "code_sha256": digest((ROOT / "src/uteki/agents/cloud_analysis.py").read_bytes()),
+           "code_sha256": digest((ROOT / "src/uteki/agents/analysis/cloud_analysis.py").read_bytes()),
            "limits": {"model_rounds": 12, "tool_calls": 40, "calls_per_round": 8},
            "protocol": "model-generated JSON actions, allowlisted local dispatcher",
            "human_review": "pending", "limitations": ["No document retrieval", "No Thesis or causal attribution",
@@ -44,7 +44,7 @@ def main():
                    limitations=["Controlled missing-data fixture", "Fixed source-only rule recovery; not general document search",
                                 "Recovered facts and analysis pending review", "No Thesis or causal attribution"])
         run["recovery_code_sha256"] = {str(p.relative_to(ROOT)): digest(p.read_bytes()) for p in
-            (ROOT / "src/uteki/agents/cloud_recovery.py", ROOT / "src/uteki/infrastructure/research_data/cloud_recovery.py")}
+            (ROOT / "src/uteki/agents/analysis/cloud_recovery.py", ROOT / "src/uteki/infrastructure/research_data/cloud_recovery.py")}
     run_id = "analysis-" + digest(encoded(run))[:16]
     folder = ROOT / "experiments/cloud_analysis" / run_id
     folder.mkdir(parents=True, exist_ok=False)

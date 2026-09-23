@@ -2,7 +2,7 @@ import argparse
 import asyncio
 import os
 from pathlib import Path
-from uteki.agents.analysis_comparison import run_comparison
+from uteki.agents.analysis.analysis_comparison import run_comparison
 
 if __name__=='__main__':
     p=argparse.ArgumentParser()

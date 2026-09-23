@@ -3,7 +3,7 @@ import html
 import json
 import sys
 from pathlib import Path
-from uteki.agents.document_reader import DocumentReader
+from uteki.agents.reading.document_reader import DocumentReader
 
 ROOT = Path(__file__).resolve().parents[1]
 RUN = ROOT/'experiments/analysis_comparison'/(sys.argv[1] if len(sys.argv)>1 else 'open-drivers-gpt54mini-v0.1')

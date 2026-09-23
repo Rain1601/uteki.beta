@@ -10,7 +10,8 @@ from .query_contract import Period
 
 
 PERIOD_SCOPE_VERSION = "explicit-calendar-periods-v1"
-_YEAR = r"(?<![\d.])(?P<year>[1-9]\d{3})(?![\d.])"
+# A sentence-ending period is punctuation, while a decimal suffix is not a year.
+_YEAR = r"(?<![\d.])(?P<year>[1-9]\d{3})(?!\d|\.\d)"
 _QUARTER = r"(?:Q(?P<q>[1-4])|第?\s*(?P<cq>[一二三四1234])\s*季度)"
 _FORWARD = re.compile(_YEAR + r"\s*年?\s*" + _QUARTER, re.I)
 _REVERSE = re.compile(_QUARTER + r"\s*(?:of\s+)?" + _YEAR, re.I)

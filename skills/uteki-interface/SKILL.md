@@ -11,6 +11,6 @@ The intended product is a company research workspace: compact, calm, readable, w
 
 Before editing, identify the page's main object and the existing component to reuse. Prefer shared tokens and a scoped component rule over another late CSS override. Do not redesign unrelated pages or treat styling as authorization to change research conclusions, adoption or data.
 
-Use the guide's review checklist. Separate implemented behavior, automated checks, and actual visual verification. If browser access is unavailable, state the remaining visual check; never call tests visual approval. Do not infer approval to publish from this skill.
+Default to validating data structures, field mappings and code behavior; the user reviews the page visually. Do not routinely run browser/screenshot/viewport reviews. Use the guide's visual checklist only when the user explicitly requests visual review or a concrete browser-dependent bug requires targeted reproduction. Separate implemented behavior, automated checks and any actual visual checks; user visual review does not block delivery or other authorized development. Never call tests visual approval. Do not infer approval to publish from this skill.
 
 When a user changes a recurring preference, update the relevant rule in the guide instead of accumulating contradictory exceptions. Keep project-specific lifecycle and data requirements in the repository.

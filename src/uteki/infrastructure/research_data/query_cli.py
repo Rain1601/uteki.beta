@@ -8,6 +8,7 @@ import duckdb
 
 from .query_dataset import build_dataset
 from .query_service import QueryDataPort
+from .evidence_packaging import build_evidence_package
 
 
 def main(argv=None):
@@ -33,15 +34,47 @@ def main(argv=None):
             elif name == "read":
                 tool.add_argument("--source", required=True)
                 tool.add_argument("--block", required=True)
+    for name in ("schema", "discover", "query", "evidence", "context", "outline", "read", "search", "package"):
+        tool = commands.add_parser("scoped-" + name, help="explicit source-scoped execution")
+        tool.add_argument("--dataset", type=Path, required=True)
+        tool.add_argument("--scope", type=Path, required=True, help="research-execution-v1 scope JSON")
+        if name == "schema":
+            tool.add_argument("--metric", action="append", default=[])
+        elif name == "evidence":
+            tool.add_argument("--id", action="append", required=True)
+        elif name == "context":
+            tool.add_argument("--source", required=True)
+            tool.add_argument("--block", required=True)
+        elif name != "discover":
+            tool.add_argument("--request", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
         if args.out and args.out.exists():
             raise FileExistsError("output artifact exists")
+        if args.tool != "build" and args.out and args.out.resolve().is_relative_to(args.dataset.resolve()):
+            raise ValueError("query outputs must be outside the immutable dataset")
         if args.tool == "build":
             result = build_dataset(args.repo, args.destination, spec=args.spec)
         else:
             with QueryDataPort(args.dataset) as port:
-                if args.tool == "schema":
+                if args.tool.startswith("scoped-"):
+                    scoped = port.scoped(json.loads(args.scope.read_text()))
+                    name = args.tool.removeprefix("scoped-")
+                    if name == "schema":
+                        result = scoped.get_schema(args.metric)
+                    elif name == "discover":
+                        result = scoped.discover_data()
+                    elif name == "evidence":
+                        result = scoped.get_evidence(args.id)
+                    elif name == "context":
+                        result = scoped.read_context(source_snapshot_id=args.source, block_id=args.block)
+                    elif name == "package":
+                        result = build_evidence_package(scoped, json.loads(args.request.read_text()))
+                    else:
+                        method = {"query": scoped.query_data, "outline": scoped.outline_source,
+                                  "read": scoped.read_source, "search": scoped.search_source}[name]
+                        result = method(json.loads(args.request.read_text()))
+                elif args.tool == "schema":
                     result = port.get_schema(args.metric)
                 elif args.tool == "discover":
                     result = port.discover_data(knowledge_cutoff=args.as_of, include_candidates=args.include_candidates)

@@ -5,7 +5,7 @@ import html as escape_html
 import json
 from pathlib import Path
 from lxml import html
-from uteki.agents.document_reader import DocumentReader
+from uteki.agents.reading.document_reader import DocumentReader
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'experiments/document_reader/owner-qa-v0.1'

@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(ROOT / "src"))
 
-from uteki.agents.research_archive import ArchiveError, Store
+from uteki.agents.archive.research_archive import ArchiveError, Store
 from uteki.domain.business_map import business_map_from_dict
 from uteki.infrastructure.document_sources.sec import text_hash
 

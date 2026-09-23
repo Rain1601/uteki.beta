@@ -54,7 +54,7 @@ def inspect_workspace(root: Path, *, data_path: Path | None = None) -> dict:
     record("Analysis SDK / 分析扩展", "agents", False, lambda: dependency("agents"))
 
     def companies():
-        from apps.review_workbench.company_universe import render_company_universe_page
+        from apps.review_workbench.pages.company_universe import render_company_universe_page
         value = _object(root / COMPANIES)
         # Exercise the existing read-only renderer's contract as well as its
         # validator; this catches missing labels without duplicating the schema.
@@ -65,7 +65,7 @@ def inspect_workspace(root: Path, *, data_path: Path | None = None) -> dict:
 
     def catalog():
         from uteki.agents.material_library import load_catalog
-        from apps.review_workbench.company_data import material_table
+        from apps.review_workbench.pages.company_data import material_table
         value = load_catalog(root)
         material_table(value)
         return f"{len(value['documents'])} catalog entries / 条材料目录记录"
@@ -148,7 +148,7 @@ def inspect_workspace(root: Path, *, data_path: Path | None = None) -> dict:
     record("Full SEC source / 完整 SEC 原文", root / SOURCE / "source.html.gz", False, raw_source)
 
     def index(folder):
-        from uteki.agents.document_reader import DocumentReader
+        from uteki.agents.reading.document_reader import DocumentReader
         DocumentReader(folder)
         _object(folder / "assets.json")
     record("Frozen document index / 已冻结文档索引", root / SOURCE / "indexes/v0.1", False,
@@ -169,7 +169,7 @@ def inspect_workspace(root: Path, *, data_path: Path | None = None) -> dict:
             record("Material index / 材料索引: " + document["id"], document.get("index_folder", ""), False, material)
 
     def experiments():
-        from apps.review_workbench.research_archive_import import import_rows
+        from apps.review_workbench.data.research_archive_import import import_rows
         rows = import_rows(root)
         if not rows:
             return "No imported reports; an empty report list is allowed / 无可导入报告，允许空列表"

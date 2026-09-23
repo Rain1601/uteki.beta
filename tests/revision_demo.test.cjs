@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const R=require('../apps/review_workbench/revision_demo.js');
+const R=require('../apps/review_workbench/static/js/revision_demo.js');
 const seed={identity:'test',reports:{annual:{hypotheses:[{id:'H1',judgment:'original',test:'watch',sources:['A1']},{id:'H2',judgment:'unchanged',test:'watch2',sources:[]}]}}};
 const input={parent:'v1',hypothesis:'H1',text:'revised',watch:'new test',reason:'Q1 evidence',basis:{stage:'q1',answer_sha256:'hash',cutoff:'2026-04-30'},sources:['B1'],time:'2026-09-15T00:00:00Z'};
 test('save is immutable and does not adopt',()=>{const s=R.initial(seed),n=R.save(s,input);assert.equal(s.versions.length,1);assert.equal(n.active,'v1');assert.equal(n.versions[1].status,'candidate');assert.deepEqual(n.versions[1].report.hypotheses[1],s.versions[0].report.hypotheses[1]);assert.equal(n.versions[1].basis.answer_sha256,'hash');assert.equal(n.versions[1].before.text,'original');});

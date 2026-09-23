@@ -1,8 +1,8 @@
 """Build a new immutable overlay collection from locally pinned indexes."""
 import json
 from pathlib import Path
-from uteki.agents.document_reader import DocumentReader, sha
-from uteki.agents.reading_groups import VERSION
+from uteki.agents.reading.document_reader import DocumentReader, sha
+from uteki.agents.reading.reading_groups import VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 out = ROOT / 'experiments/reading_groups/v0.1'
@@ -14,7 +14,7 @@ for doc in catalog['documents']:
         continue
     reader = DocumentReader(ROOT / doc['index_folder'])
     value = {'index_manifest': reader.manifest, 'version': VERSION,
-             'rules_sha256': sha((ROOT / 'src/uteki/agents/reading_groups.py').read_bytes()),
+             'rules_sha256': sha((ROOT / 'src/uteki/agents/reading/reading_groups.py').read_bytes()),
              'groups': reader.groups}
     (out / (doc['id'] + '.json')).write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
     summary.append({'document': doc['id'], 'groups': len(reader.groups)})
